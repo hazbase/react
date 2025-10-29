@@ -52,18 +52,38 @@ export function WalletProvider({
   }, [knownChains]);
 
   const bindInjectedEvents = useCallback((eth: any, provider: BrowserProvider) => {
-    // Bind EIP-1193 events to keep React state in sync
-    const onAccounts = async (accounts: string[]) => {
+    const onAccountsChanged = async (accounts: string[]) => {
       const account = (accounts?.[0] ?? null) as Hex | null;
-      setState(s => ({ ...s, account }));
+      const signer = account ? await provider.getSigner() : null;
+      setState(prev => ({ ...prev, account, signer }));
     };
-    const onChain = async (_chainIdHex: string) => {
+
+    const onChainChanged = async (_chainIdHex: string) => {
       const net = await provider.getNetwork();
       const chainId = Number(net.chainId);
-      setState(s => ({ ...s, chainId, chain: resolveChain(chainId) }));
+
+      const accounts: string[] = await eth.request({ method: "eth_accounts" });
+      const account = (accounts?.[0] ?? null) as Hex | null;
+
+      const signer = account ? await provider.getSigner() : null;
+
+      setState(prev => ({
+        ...prev,
+        chainId,
+        chain: resolveChain(chainId),
+        account,
+        signer
+      }));
     };
-    eth?.on?.("accountsChanged", onAccounts);
-    eth?.on?.("chainChanged", onChain);
+
+    eth?.on?.("accountsChanged", onAccountsChanged);
+    eth?.on?.("chainChanged", onChainChanged);
+
+    // Optional: return unbind function to remove listeners on cleanup
+    return () => {
+      eth?.removeListener?.("accountsChanged", onAccountsChanged);
+      eth?.removeListener?.("chainChanged", onChainChanged);
+    };
   }, [resolveChain]);
 
   const connectMetaMask = useCallback(async () => {
@@ -94,7 +114,7 @@ export function WalletProvider({
 
   const connectGuest = useCallback(async ({ privKey, rpcUrl }: { privKey: Hex; rpcUrl: string }) => {
     setState(s => ({ ...s, status: "connecting" }));
-    // NOTE: In production, decrypt the key with WebCrypto before using it.
+
     const provider = new JsonRpcProvider(rpcUrl);
     const wallet = new Wallet(privKey, provider);
     const account = (await wallet.getAddress()) as Hex;
@@ -169,17 +189,25 @@ export function WalletProvider({
     if (state.connector === "guest") {
       const rpcUrl = target.rpcUrls?.[0];
       if (!rpcUrl) throw new Error("RPC_URL_REQUIRED");
-      const provider = new JsonRpcProvider(rpcUrl);
+
       const prevWallet = state.signer as Wallet;
+      if (!prevWallet?.privateKey) throw new Error("GUEST_KEY_MISSING");
+
+      const provider = new JsonRpcProvider(rpcUrl);
       const wallet = new Wallet(prevWallet.privateKey, provider);
+
       const net = await provider.getNetwork();
-      const chainId = Number(net.chainId);
-      setState(s => ({
-        ...s,
+      const actualId = Number(net.chainId);
+      if (actualId !== target.id) {
+        throw new Error(`CHAIN_ID_MISMATCH: expected ${target.id}, got ${actualId}`);
+      }
+
+      setState(prev => ({
+        ...prev,
         provider,
         signer: wallet,
-        chainId,
-        chain: resolveChain(chainId)
+        chainId: actualId,
+        chain: resolveChain(actualId) ?? target
       }));
       return;
     }
