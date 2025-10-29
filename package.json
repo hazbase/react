@@ -1,6 +1,6 @@
 {
   "name": "@hazbase/react",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "React wallet utilities built on ethers v6—supports MetaMask, WalletConnect, and guest keys with WalletProvider.",
   "author": "IndieSquare Inc <info@hazbase.com>",
   "keywords": [
