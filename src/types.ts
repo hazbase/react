@@ -1,10 +1,9 @@
-// English comments only in code
 export type Hex = `0x${string}`;
 
-export type Status = "disconnected" | "connecting" | "connected" | "locked";
+export type Status = 'disconnected' | 'connecting' | 'connected' | 'locked';
 
 export interface ChainConfig {
-  id: number; // EIP-155 chain id (decimal)
+  id: number;
   name: string;
   rpcUrls: string[];
   icon?: string;
@@ -14,4 +13,288 @@ export interface ChainConfig {
     decimals: number;
   };
   blockExplorers?: { name: string; url: string }[];
+}
+
+export interface EmailOtpSession {
+  email: string;
+  accessToken: string;
+  refreshToken?: string;
+  sessionId?: string;
+  userId?: string;
+  ownerBootstrapRequired?: boolean;
+  smartAccountAddress?: Hex;
+  [key: string]: unknown;
+}
+
+export interface EmbeddedSessionGrant {
+  sessionId?: string;
+  sessionKeyAddress?: Hex;
+  validUntil?: string | number;
+  level?: number | string;
+  profileKey?: string;
+  gasBudgetInitial?: string;
+  gasBudgetRemaining?: string;
+  [key: string]: unknown;
+}
+
+export interface PasskeyDeviceRecord {
+  deviceBindingId: string;
+  credentialId: string;
+  label?: string | null;
+  displayDeviceId?: string | null;
+  status: string;
+  createdAt?: string;
+  lastAssertedAt?: string | null;
+}
+
+export interface PasskeyDeviceInventory {
+  devices: PasskeyDeviceRecord[];
+  status?: string;
+}
+
+export interface RevokePasskeyDeviceResult {
+  deviceBindingId: string;
+  cascadedEmbeddedSessions?: boolean;
+  status?: string;
+}
+
+export interface EmbeddedSessionRecord {
+  embeddedSessionId: string;
+  smartAccountAddress: Hex;
+  deviceBindingId: string;
+  actionProfileKey: string;
+  sessionKeyAddress?: Hex;
+  validUntil?: string;
+  gasBudgetRemaining?: string;
+  createdAt?: string;
+}
+
+export interface EmbeddedSessionInventory {
+  sessions: EmbeddedSessionRecord[];
+  status?: string;
+}
+
+export interface RevokeEmbeddedSessionResult {
+  embeddedSessionId: string;
+  status?: string;
+}
+
+export type PasskeyAssertionPurpose = 'bootstrap' | 'migration' | 'reauth' | 'session';
+export type PasskeyAlgorithm = 'ES256' | 'RS256';
+export type PasskeyFlowStep =
+  | 'signed_out'
+  | 'otp_requested'
+  | 'email_verified'
+  | 'passkey_bound'
+  | 'high_trust_ready'
+  | 'account_ready'
+  | 'session_ready'
+  | 'error';
+
+export interface PasskeyRegistrationChallengeResult {
+  challengeId: string;
+  challenge: string;
+  rpId: string;
+  rpName: string;
+  origin: string;
+  userHandle: string;
+  userName: string;
+  userDisplayName: string;
+  timeoutMs?: number;
+  excludeCredentialIds?: string[];
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface PasskeyRegistrationCredential {
+  username: string;
+  credential: {
+    id: string;
+    publicKey: string;
+    algorithm: PasskeyAlgorithm;
+  };
+  authenticatorData: string;
+  clientData: string;
+  attestationData?: string;
+}
+
+export interface PasskeyRegistrationResult {
+  deviceBindingId: string;
+  credentialId: string;
+  status?: string;
+  userId?: string;
+  [key: string]: unknown;
+}
+
+export interface PasskeyAssertionChallengeResult {
+  challengeId: string;
+  challenge: string;
+  rpId: string;
+  origin: string;
+  timeoutMs?: number;
+  purpose: PasskeyAssertionPurpose;
+  deviceBindingId?: string;
+  credentialIds?: string[];
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface PasskeyAssertionCredential {
+  credentialId: string;
+  authenticatorData: string;
+  clientData: string;
+  signature: string;
+  userHandle?: string;
+}
+
+export interface PasskeyAssertionResult {
+  deviceBindingId: string;
+  credentialId: string;
+  purpose: PasskeyAssertionPurpose;
+  assertedAt?: string;
+  highTrustToken?: string;
+  highTrustExpiresAt?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface PasskeyAccountDescriptor {
+  chainId: number;
+  factoryAddress: Hex;
+  ownerValidator: Hex;
+  ownerConfig: Hex;
+  ownerConfigHash: Hex;
+  predictedAccountAddress: Hex;
+  accountSalt: string;
+  credentialId?: string;
+  deviceBindingId?: string;
+  status?: string;
+}
+
+export interface PasskeyAccountBootstrapResult extends PasskeyAccountDescriptor {
+  smartAccountAddress: Hex;
+  userId?: string;
+}
+
+export interface PasskeyAccountReadyResult extends PasskeyAccountDescriptor {
+  smartAccountAddress: Hex;
+  bootstrapped: boolean;
+}
+
+export interface OwnerUserOpAuthorization {
+  ownerValidator: Hex;
+  ownerConfigHash: Hex;
+  validAfter: number;
+  validUntil: number;
+  signatureType: number;
+  signaturePayload: Hex;
+  accountSignature: Hex;
+  status?: string;
+}
+
+export type SessionSigningMode = 'none' | 'session';
+
+export interface SponsorUserOpResult {
+  decisionId: string;
+  approved: boolean;
+  expiresAt: string;
+  profileKey: string;
+  paymasterAndData: Hex;
+  validAfter: number;
+  validUntil: number;
+  paymasterAddress: Hex;
+  sponsoredUserOpHash?: Hex;
+  sessionKeyAddress?: Hex;
+  accountSignature?: Hex;
+  signingMode?: SessionSigningMode;
+  status?: string;
+}
+
+export interface UserOperationDraft {
+  sender: Hex;
+  nonce: bigint | number | string;
+  initCode?: Hex;
+  callData: Hex;
+  callGasLimit: bigint | number | string;
+  verificationGasLimit: bigint | number | string;
+  preVerificationGas?: bigint | number | string;
+  maxFeePerGas?: bigint | number | string;
+  maxPriorityFeePerGas?: bigint | number | string;
+}
+
+export interface BundlerUserOperation extends UserOperationDraft {
+  preVerificationGas: bigint | number | string;
+  maxFeePerGas: bigint | number | string;
+  maxPriorityFeePerGas: bigint | number | string;
+  paymasterAndData?: Hex;
+  signature?: Hex;
+}
+
+export interface BundlerSendResult {
+  userOpHash: Hex;
+  transactionHash?: Hex;
+  receipt?: Record<string, unknown> | null;
+  userOp: BundlerUserOperation & {
+    paymasterAndData: Hex;
+    signature: Hex;
+  };
+  sponsor: SponsorUserOpResult;
+}
+
+export interface HazbasePasskeyClient {
+  sendOtp(input: { email: string; purpose?: string }): Promise<unknown>;
+  verifyOtp(input: { email: string; code: string; purpose?: string }): Promise<EmailOtpSession>;
+  registerPasskey(input: { emailSession: EmailOtpSession; deviceId?: string; deviceLabel?: string }): Promise<PasskeyRegistrationResult>;
+  assertPasskey(input: { emailSession: EmailOtpSession; purpose?: PasskeyAssertionPurpose; deviceBindingId?: string }): Promise<PasskeyAssertionResult>;
+  getAccountDescriptor(input: { emailSession: EmailOtpSession; deviceBindingId: string; accountSalt?: string; chainId?: number }): Promise<PasskeyAccountDescriptor>;
+  bootstrapAccount(input: {
+    emailSession: EmailOtpSession;
+    deviceBindingId: string;
+    highTrustToken: string;
+    accountSalt?: string;
+    chainId?: number;
+    metadata?: Record<string, unknown>;
+  }): Promise<PasskeyAccountBootstrapResult>;
+  lookupAccount(input: { emailSession: EmailOtpSession; deviceBindingId?: string; smartAccountAddress?: Hex }): Promise<Record<string, unknown>>;
+  authorizeOwnerUserOp(input: {
+    emailSession: EmailOtpSession;
+    deviceBindingId: string;
+    highTrustToken: string;
+    smartAccountAddress: Hex;
+    userOpHash: Hex;
+    validForSec?: number;
+  }): Promise<OwnerUserOpAuthorization>;
+  startSession(input: {
+    emailSession: EmailOtpSession;
+    deviceBindingId: string;
+    smartAccountAddress: Hex;
+    actionProfileKey: string;
+    highTrustToken: string;
+    sessionKeyAddress?: Hex;
+    metadata?: Record<string, unknown>;
+  }): Promise<EmbeddedSessionGrant>;
+  endSession(input: { emailSession: EmailOtpSession; embeddedSessionId: string }): Promise<void>;
+  listPasskeyDevices(input: { emailSession: EmailOtpSession }): Promise<PasskeyDeviceInventory>;
+  revokePasskeyDevice(input: {
+    emailSession: EmailOtpSession;
+    deviceBindingId: string;
+    highTrustToken: string;
+  }): Promise<RevokePasskeyDeviceResult>;
+  listEmbeddedSessions(input: { emailSession: EmailOtpSession }): Promise<EmbeddedSessionInventory>;
+  revokeEmbeddedSession(input: {
+    emailSession: EmailOtpSession;
+    embeddedSessionId: string;
+    highTrustToken: string;
+  }): Promise<RevokeEmbeddedSessionResult>;
+  sponsorUserOp(input: {
+    emailSession: EmailOtpSession;
+    embeddedSessionId: string;
+    userOp: UserOperationDraft;
+    target: Hex;
+    data: Hex;
+    value?: bigint | number | string;
+    paymasterValiditySec?: string;
+    signingMode?: SessionSigningMode;
+    metadata?: Record<string, unknown>;
+  }): Promise<SponsorUserOpResult>;
 }

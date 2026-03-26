@@ -10,7 +10,11 @@
     "emitDeclarationOnly": false,
     "jsx": "react-jsx",
     "skipLibCheck": true,
-    "types": []
+    "types": [],
+    "baseUrl": ".",
+    "paths": {
+      "@hazbase/auth": ["../auth/src/index.ts"]
+    }
   },
   "include": ["src"]
 }

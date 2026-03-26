@@ -1,255 +1,282 @@
 # @hazbase/react
-[![npm version](https://badge.fury.io/js/%40hazbase%2Freact.svg)](https://badge.fury.io/js/%40hazbase%2Freact)
+[![npm version](https://badge.fury.io/js/@hazbase%2Freact.svg)](https://badge.fury.io/js/@hazbase%2Freact)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Overview
-`@hazbase/react` is a lightweight React toolkit for **wallet connection and network control** built on **ethers v6**.  
-It unifies **MetaMask (injected)**, **WalletConnect (via EIP-1193 provider)**, and **Guest login** (ephemeral private key in the browser), and provides a simple API surface:
+`@hazbase/react` is a React toolkit for two frontend patterns:
 
-- `<WalletProvider />` — global state & actions
-- `useSigner()` — signer instance & connect/disconnect
-- `useAddress()` — current address
-- `useNetwork()` — read current chain info and **switch/add network**
+- standard injected wallet apps with `WalletProvider`
+- passkey-native hazBase smart-wallet apps with `PasskeyAccountProvider`
 
-Designed to work smoothly with `@hazbase/kit` helpers (connect with an ethers `Signer`), and to fit compliance-first architectures later (suitability, reputation, circuit-breaker, etc.).
-
----
+The passkey flow is intentionally flow-oriented. Instead of wiring every backend step yourself, you create one client and then use helpers like `ensurePasskey()`, `ensureAccount()`, `ensureSession()`, `sponsorAndSend()`, and `sponsorAndSendExecute()`.
 
 ## Requirements
-- **Node.js**: 18+ (ESM recommended)
-- **React**: 18+
-- **Deps**: `ethers` v6
-
----
+- Node.js >= 18
+- React >= 18
+- Ethers v6
+- A hazBase-compatible backend for the passkey flow
+- WebAuthn support in the browser when you use passkeys
 
 ## Installation
 ```bash
-npm i @hazbase/react ethers react react-dom
+pnpm add @hazbase/react @hazbase/auth @hazbase/kit ethers react
 # or
-yarn add @hazbase/react ethers react react-dom
+npm i @hazbase/react @hazbase/auth @hazbase/kit ethers react
 ```
 
----
+## Usage patterns
+`@hazbase/react` supports two main frontend patterns:
 
-## Quick start
-Wrap your app with `WalletProvider`, then use hooks from anywhere.
+- `WalletProvider`: MetaMask / injected wallet apps
+- `PasskeyAccountProvider`: email OTP + passkey + account bootstrap + sponsored action apps
 
-```tsx
-// main.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-import App from "./App";
-import { WalletProvider } from "@hazbase/react";
+Use `WalletProvider` when your app should behave like a normal wallet-connected dApp. Use `PasskeyAccountProvider` when your app should guide users through a hazBase-managed smart-wallet flow.
 
-const knownChains = [
-  { id: 1, name: "Ethereum", rpcUrls: ["https://..."] },
-  { id: 137, name: "Polygon",  rpcUrls: ["https://..."] }
-];
-
-createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <WalletProvider knownChains={knownChains} autoConnect>
-      <App />
-    </WalletProvider>
-  </React.StrictMode>
-);
-```
+## Quick start: WalletProvider (MetaMask / injected wallet)
 
 ```tsx
-// App.tsx
-import React from "react";
-import { useSigner, useAddress, useNetwork } from "@hazbase/react";
+import {
+  WalletProvider,
+  useAddress,
+  useNetwork,
+  useSigner,
+} from '@hazbase/react';
 
-export default function App() {
-  const { status, signer, connectMetaMask, connectGuest, disconnect } = useSigner();
+function WalletPanel() {
+  const { signer, connectMetaMask, disconnect } = useSigner();
   const { address, isConnected } = useAddress();
-  const { chain, chainId, switchNetwork } = useNetwork();
-
-  const polygon = { id: 137, name: "Polygon", rpcUrls: ["https://..."] };
+  const network = useNetwork();
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2>@hazbase/react demo</h2>
-      <p>Status: <b>{status}</b></p>
-      <p>Address: <b>{address ?? "-"}</b></p>
-      <p>Network: <b>{chain?.name ?? chainId ?? "-"}</b></p>
-
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-        <button onClick={connectMetaMask}>Connect MetaMask</button>
-        <button
-          onClick={() =>
-            connectGuest({
-              privKey: "0x...",
-              rpcUrl: "https://..."
-            })
-          }
-        >
-          Connect Guest (demo key)
-        </button>
-        <button onClick={() => switchNetwork(polygon)} disabled={!isConnected}>
-          Switch to Polygon
-        </button>
-        <button onClick={disconnect}>Disconnect</button>
-      </div>
-
-      <p style={{ marginTop: 12 }}>Signer ready? <b>{signer ? "yes" : "no"}</b></p>
+    <div>
+      <button onClick={() => connectMetaMask()}>Connect MetaMask</button>
+      <button onClick={() => disconnect()}>Disconnect</button>
+      <pre>
+        {JSON.stringify(
+          {
+            isConnected,
+            address,
+            chainId: network.chainId,
+            hasSigner: Boolean(signer),
+          },
+          null,
+          2,
+        )}
+      </pre>
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <WalletProvider autoConnect>
+      <WalletPanel />
+    </WalletProvider>
   );
 }
 ```
 
----
-
-## API
-
-### `<WalletProvider />`
-Global provider that manages connector state (MetaMask or Guest), current account, chain, and exposes actions.
-
-**Props**
-- `knownChains?: ChainConfig[]` — known networks for name/metadata and EIP-3085 `wallet_addEthereumChain`.
-- `autoConnect?: boolean` — re-connect last connector (MetaMask only) on mount.
-
-```ts
-export interface ChainConfig {
-  id: number;              // EIP-155 chain id (decimal)
-  name: string;
-  rpcUrls: string[];
-  icon?: string;
-  nativeCurrency?: { name: string; symbol: string; decimals: number };
-  blockExplorers?: { name: string; url: string }[];
-}
-```
-
----
-
-### `useSigner()`
-Returns signer info & connect/disconnect actions.
-
-```ts
-type Status = "disconnected" | "connecting" | "connected" | "locked";
-
-function useSigner(): {
-  status: Status;
-  signer: import("ethers").JsonRpcSigner | import("ethers").Wallet | null;
-  connectMetaMask(): Promise<void>;
-  connectGuest(params: { privKey: `0x${string}`; rpcUrl: string }): Promise<void>;
-  disconnect(): void;
-}
-```
-
-- **MetaMask**: wraps `window.ethereum` with `BrowserProvider("any")`, follows chain changes automatically.
-- **Guest**: constructs `Wallet(privKey, new JsonRpcProvider(rpcUrl))`.  
-  *Production note*: encrypt at rest (IndexedDB + WebCrypto) and decrypt only right before signing.
-
----
-
-### `useAddress()`
-Read current address and connection status.
-
-```ts
-function useAddress(): {
-  address: `0x${string}` | null;
-  isConnected: boolean;
-}
-```
-
----
-
-### `useNetwork()`
-Read chain info and **switch/add** networks.
-
-```ts
-function useNetwork(): {
-  chainId: number | null;
-  chain: ChainConfig | null | undefined;
-  connector: "metamask" | "guest" | null;
-  refresh(): Promise<void>;
-  switchNetwork(target: ChainConfig): Promise<void>; // MetaMask: EIP-3326; Guest: rebind RPC
-  addNetwork(params: ChainConfig): Promise<void>;    // EIP-3085 for injected wallets
-}
-```
-
-- **MetaMask**: tries `wallet_switchEthereumChain`; if unknown (`code=4902`) uses `wallet_addEthereumChain`.
-- **Guest**: re-creates `JsonRpcProvider` and `Wallet` with the **same private key**, validates actual `chainId`, then commits state.
-
----
-
-## Patterns
-
-### Use with `@hazbase/kit` helpers
-Most helpers accept an ethers `Signer`. Just `connect(signer)` when available.
+## Quick start: PasskeyAccountProvider
 
 ```tsx
-import { useEffect, useMemo } from "react";
-import { JsonRpcProvider } from "ethers";
-import { useSigner } from "@hazbase/react";
-import { FlexibleTokenHelper } from "@hazbase/kit";
+import {
+  PasskeyAccountProvider,
+  createHazbasePasskeyClient,
+  usePasskeyAccount,
+} from '@hazbase/react';
 
-export function BondWidget() {
-  const { status, signer } = useSigner();
+const client = createHazbasePasskeyClient();
 
-  const helper = useMemo(() => {
-    const provider = new JsonRpcProvider("https://...");
-    const token = FlexibleTokenHelper.attach("0xToken..." as `0x${string}`, provider);
-  }, []);
+function PasskeyPanel() {
+  const {
+    sendOtp,
+    verifyOtp,
+    ensurePasskey,
+    ensureSession,
+    ensureAccount,
+    sponsorAndSendExecute,
+  } = usePasskeyAccount();
 
-  useEffect(() => {
-    if (status === "connected" && signer) helper.connect(signer);
-  }, [status, signer, helper]);
+  async function runFlow() {
+    await sendOtp({ email: 'demo@example.com' });
+    await verifyOtp({ email: 'demo@example.com', code: '123456' });
+    await ensurePasskey({ deviceLabel: 'Chrome on MacBook' });
+    const account = await ensureAccount({ chainId: 11155111, accountSalt: 'user-owned-account' });
+    await ensureSession({ actionProfileKey: 'first_party_l2' });
 
-  // ...
-  return null;
+    const sent = await sponsorAndSendExecute({
+      mode: 'session',
+      nonce: '0',
+      target: '0x1111111111111111111111111111111111111111',
+      data: '0x12345678',
+      value: '0',
+      callGasLimit: '150000',
+      verificationGasLimit: '120000',
+      preVerificationGas: '50000',
+      maxFeePerGas: '1000000000',
+      maxPriorityFeePerGas: '100000000',
+    });
+
+    console.log(account.smartAccountAddress, sent.userOpHash, sent.transactionHash);
+  }
+
+  return <button onClick={runFlow}>Run passkey account flow</button>;
 }
-```
 
-### Connect button (reusable)
-```tsx
-import { useSigner, useAddress } from "@hazbase/react";
-
-export function ConnectButton() {
-  const { status, connectMetaMask, connectGuest, disconnect } = useSigner();
-  const { address, isConnected } = useAddress();
-
-  return isConnected ? (
-    <div style={{ display: "flex", gap: 8 }}>
-      <span>{address?.slice(0, 6)}…{address?.slice(-4)}</span>
-      <button onClick={disconnect}>Disconnect</button>
-    </div>
-  ) : (
-    <div style={{ display: "flex", gap: 8 }}>
-      <button onClick={connectMetaMask}>Connect MetaMask</button>
-      <button onClick={() => connectGuest({ privKey: "0x...", rpcUrl: "https://..." })}>
-        Guest
-      </button>
-      <span style={{ color: "#888" }}>{status === "connecting" ? "connecting..." : ""}</span>
-    </div>
+export function App() {
+  return (
+    <PasskeyAccountProvider
+      client={client}
+      defaultChainId={11155111}
+      defaultAccountSalt="user-owned-account"
+      defaultActionProfileKey="first_party_l2"
+    >
+      <PasskeyPanel />
+    </PasskeyAccountProvider>
   );
 }
 ```
 
----
+## Quick start: usePasskeyOnboarding
 
-## Behavior notes
-- **MetaMask chain change**: With `BrowserProvider(…, "any")`, the provider follows chain changes. This library also listens to `chainChanged` and **re-reads account & signer**.
-- **Account change**: `accountsChanged` triggers re-fetching `account` and `signer`.
-- **Guest mode**: app-managed RPC & key; always switch networks via `useNetwork().switchNetwork()` to keep state/signers in sync.
+```tsx
+import {
+  PasskeyAccountProvider,
+  createHazbasePasskeyClient,
+  usePasskeyOnboarding,
+} from '@hazbase/react';
 
----
+const client = createHazbasePasskeyClient();
 
-## Troubleshooting
-- **`METAMASK_NOT_FOUND`** — No injected EIP-1193 provider. Show install link or fallback to Guest.  
-- **`RPC_URL_REQUIRED` (Guest)** — Target `ChainConfig.rpcUrls[0]` missing.  
-- **`CHAIN_ID_MISMATCH` (Guest)** — RPC chain ID differs from `ChainConfig.id`. Fix target config or RPC.  
-- **`UNSUPPORTED_CONNECTOR`** — Action not available for current connector.
+function OnboardingPanel() {
+  const { sendOtp, completeOnboarding, isAccountReady, smartAccountAddress } = usePasskeyOnboarding();
 
----
+  async function onboard() {
+    await sendOtp({ email: 'demo@example.com' });
+    await completeOnboarding({
+      email: 'demo@example.com',
+      code: '123456',
+      deviceLabel: 'Chrome on MacBook',
+      chainId: 11155111,
+      accountSalt: 'user-owned-account',
+    });
+  }
 
-## Roadmap
-- WalletConnect connector (EIP-1193 provider → `BrowserProvider`)
-- Guest key encryption helpers (IndexedDB + WebCrypto)
-- Optional compliance hooks (suitability, reputation/MTC, circuit-breaker)
+  return (
+    <div>
+      <button onClick={onboard}>Bootstrap account</button>
+      {isAccountReady ? <pre>{smartAccountAddress}</pre> : null}
+    </div>
+  );
+}
 
----
+export function App() {
+  return (
+    <PasskeyAccountProvider client={client} defaultChainId={11155111}>
+      <OnboardingPanel />
+    </PasskeyAccountProvider>
+  );
+}
+```
 
-## License
-Apache-2.0
+## Common operations
+
+### Standard wallet hooks
+- `useSigner()`
+- `useAddress()`
+- `useNetwork()`
+
+### Passkey flow hooks
+The main passkey hook is `usePasskeyAccount()`.
+
+High-level helpers:
+- `sendOtp()`
+- `verifyOtp()`
+- `ensurePasskey()`
+- `ensureHighTrust()`
+- `ensureAccount()`
+- `ensureSession()`
+- `sponsorUserOp()`
+- `sponsorAndSend()`
+- `sponsorAndSendExecute()`
+- `sponsorAndSendExecuteBatch()`
+- `authorizeOwnerUserOp()`
+- `refreshAccount()`
+- `endSession()`
+- `signOut()`
+
+Onboarding-focused helper:
+- `usePasskeyOnboarding()`
+
+Account security helper:
+- `useAccountSecurity()`
+
+Execute helpers:
+- `encodeSmartAccountExecute()`
+- `encodeSmartAccountExecuteBatch()`
+- `createExecuteUserOp()`
+- `createExecuteBatchUserOp()`
+
+Advanced escape hatch:
+- `raw`: access to the low-level client for custom integrations
+
+## Main exports
+- `WalletProvider`
+- `PasskeyAccountProvider`
+- `createHazbasePasskeyClient`
+- `useSigner`
+- `useAddress`
+- `useNetwork`
+- `usePasskeyAccount`
+- `usePasskeyOnboarding`
+- `useAccountSecurity`
+- `encodeSmartAccountExecute`
+- `encodeSmartAccountExecuteBatch`
+- `createExecuteUserOp`
+- `createExecuteBatchUserOp`
+
+## Notes
+- `PasskeyAccountProvider` assumes a first-party or allowlisted partner backend.
+- `@hazbase/react` stays backend-contract based: apps integrate against a backend URL, and the React surface does not depend on any specific infrastructure provider.
+- The same React integration should work with any hazBase-compatible backend as long as the backend API contract is preserved.
+- `sendOtp()` and `verifyOtp()` manage the application session, not wallet ownership by themselves.
+- `ensureAccount()` will reuse an existing bound smart account when possible and bootstrap only when needed.
+- New embedded sessions always require a fresh `purpose=session` passkey step-up. Existing active sessions are reused until revoked or expired.
+- Session mode is sponsor-required. The backend returns the final `accountSignature` for the sponsored payload, and the React layer forwards it to the bundler.
+- Embedded sessions use a snapshot of the action profile taken at issuance time. Later profile broadening does not widen already-issued sessions.
+- Profile deactivation still acts as a kill switch for active sessions.
+- `raw` is useful when you want to override one step without giving up the higher-level flow state.
+- `useAccountSecurity()` wraps device/session inventory plus reauth-gated revoke flows for first-party security settings screens.
+
+## Troubleshooting (FAQ)
+
+### MetaMask is not found
+Make sure the browser has an injected wallet and that your app is running in a context where `window.ethereum` is available.
+
+### `ensureSession()` says that `actionProfileKey` is required
+Pass an `actionProfileKey` directly, or set `defaultActionProfileKey` on `PasskeyAccountProvider`.
+
+### How do I build a device/session security screen?
+Use `useAccountSecurity()` to list active devices and embedded sessions, then call `revokeDevice()` or `revokeSession()` when the user confirms a revoke. The hook triggers a fresh passkey reauth before destructive operations.
+
+### Why does passkey setup still need OTP?
+The intended model is:
+- OTP starts the app session
+- passkey binds the device and handles step-up authentication
+- account bootstrap and sponsorship happen only after those steps succeed
+
+### Why does a new embedded session always ask for passkey step-up?
+Session issuance is treated as a privileged action. A fresh `purpose=session` high-trust token is required whenever the provider needs to mint a new embedded session.
+
+### When should I use `sponsorAndSendExecute()` instead of `sponsorAndSend()`?
+Use `sponsorAndSendExecute()` when you want the React layer to build `SmartAccount.execute(...)` callData for you. Use `sponsorAndSend()` when you already have a full userOp draft.
+
+### Low-level account security methods
+`PasskeyAccountProvider` does not add first-class settings UI in this phase, but the underlying client exposed as `raw` includes backend-first account security methods:
+
+- `raw.listPasskeyDevices()`
+- `raw.revokePasskeyDevice()`
+- `raw.listEmbeddedSessions()`
+- `raw.revokeEmbeddedSession()`
+
+Listing uses app-session auth. Revoke calls require a fresh `purpose=reauth` passkey step-up token. Device revoke cascades to active embedded sessions on that device.

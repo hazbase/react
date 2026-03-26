@@ -1,7 +1,7 @@
 {
   "name": "@hazbase/react",
   "version": "0.0.2",
-  "description": "React wallet utilities built on ethers v6—supports MetaMask, WalletConnect, and guest keys with WalletProvider.",
+  "description": "React toolkit for wallet connection, passkey-native account bootstrap, and sponsored smart-wallet UX built on ethers v6.",
   "author": "IndieSquare Inc <info@hazbase.com>",
   "keywords": [
     "hazBase",
@@ -57,6 +57,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@hazbase/auth": "^0.1.1",
     "@hazbase/kit": "^0.2.0"
   }
 }
