@@ -23,6 +23,8 @@ export interface EmailOtpSession {
   userId?: string;
   ownerBootstrapRequired?: boolean;
   smartAccountAddress?: Hex;
+  accountVariant?: string;
+  relayMode?: string;
   [key: string]: unknown;
 }
 
@@ -34,6 +36,17 @@ export interface EmbeddedSessionGrant {
   profileKey?: string;
   gasBudgetInitial?: string;
   gasBudgetRemaining?: string;
+  accountVariant?: string;
+  grantStatus?: string;
+  grantTxHash?: Hex | string;
+  revokeTxHash?: Hex | string | null;
+  revokeStatus?: string;
+  sessionVersion?: number;
+  grantedTargets?: Hex[];
+  grantedSelectors?: Record<string, Hex[] | string[]>;
+  relayMode?: string;
+  submittedUserOpHash?: Hex | string | null;
+  receipt?: Record<string, unknown> | null;
   [key: string]: unknown;
 }
 
@@ -67,6 +80,13 @@ export interface EmbeddedSessionRecord {
   validUntil?: string;
   gasBudgetRemaining?: string;
   createdAt?: string;
+  accountVariant?: string;
+  grantStatus?: string;
+  grantTxHash?: Hex | string | null;
+  sessionVersion?: number;
+  relayMode?: string | null;
+  lastExecutionTxHash?: Hex | string | null;
+  lastExecutionAt?: string | null;
 }
 
 export interface EmbeddedSessionInventory {
@@ -76,6 +96,11 @@ export interface EmbeddedSessionInventory {
 
 export interface RevokeEmbeddedSessionResult {
   embeddedSessionId: string;
+  accountVariant?: string;
+  relayMode?: string;
+  revokeTxHash?: Hex | string | null;
+  submittedUserOpHash?: Hex | string | null;
+  revokeStatus?: string;
   status?: string;
 }
 
@@ -89,6 +114,7 @@ export type PasskeyFlowStep =
   | 'high_trust_ready'
   | 'account_ready'
   | 'session_ready'
+  | 'session_granted'
   | 'error';
 
 export interface PasskeyRegistrationChallengeResult {
@@ -166,6 +192,8 @@ export interface PasskeyAccountDescriptor {
   ownerConfigHash: Hex;
   predictedAccountAddress: Hex;
   accountSalt: string;
+  accountVariant?: string;
+  relayMode?: string;
   credentialId?: string;
   deviceBindingId?: string;
   status?: string;
@@ -184,6 +212,8 @@ export interface PasskeyAccountReadyResult extends PasskeyAccountDescriptor {
 export interface OwnerUserOpAuthorization {
   ownerValidator: Hex;
   ownerConfigHash: Hex;
+  accountVariant?: string;
+  relayMode?: string;
   validAfter: number;
   validUntil: number;
   signatureType: number;
@@ -208,6 +238,28 @@ export interface SponsorUserOpResult {
   accountSignature?: Hex;
   signingMode?: SessionSigningMode;
   status?: string;
+}
+
+export interface DirectRelayExecutionResult {
+  accountVariant?: string;
+  relayMode?: string;
+  bundlerRpcUrl?: string;
+  rpcUrl?: string;
+  smartAccountAddress?: Hex;
+  relayerAddress?: Hex;
+  beneficiary?: Hex;
+  nonce?: string;
+  initCode?: Hex;
+  target?: Hex;
+  data?: Hex;
+  value?: string;
+  localUserOpHash?: Hex;
+  submittedUserOpHash?: Hex | string | null;
+  transactionHash?: Hex;
+  receipt?: Record<string, unknown> | null;
+  sponsor?: SponsorUserOpResult;
+  status?: string;
+  [key: string]: unknown;
 }
 
 export interface UserOperationDraft {
@@ -246,13 +298,14 @@ export interface HazbasePasskeyClient {
   verifyOtp(input: { email: string; code: string; purpose?: string }): Promise<EmailOtpSession>;
   registerPasskey(input: { emailSession: EmailOtpSession; deviceId?: string; deviceLabel?: string }): Promise<PasskeyRegistrationResult>;
   assertPasskey(input: { emailSession: EmailOtpSession; purpose?: PasskeyAssertionPurpose; deviceBindingId?: string }): Promise<PasskeyAssertionResult>;
-  getAccountDescriptor(input: { emailSession: EmailOtpSession; deviceBindingId: string; accountSalt?: string; chainId?: number }): Promise<PasskeyAccountDescriptor>;
+  getAccountDescriptor(input: { emailSession: EmailOtpSession; deviceBindingId: string; accountSalt?: string; chainId?: number; accountVariant?: string }): Promise<PasskeyAccountDescriptor>;
   bootstrapAccount(input: {
     emailSession: EmailOtpSession;
     deviceBindingId: string;
     highTrustToken: string;
     accountSalt?: string;
     chainId?: number;
+    accountVariant?: string;
     metadata?: Record<string, unknown>;
   }): Promise<PasskeyAccountBootstrapResult>;
   lookupAccount(input: { emailSession: EmailOtpSession; deviceBindingId?: string; smartAccountAddress?: Hex }): Promise<Record<string, unknown>>;
@@ -273,6 +326,24 @@ export interface HazbasePasskeyClient {
     sessionKeyAddress?: Hex;
     metadata?: Record<string, unknown>;
   }): Promise<EmbeddedSessionGrant>;
+  grantSession(input: {
+    emailSession: EmailOtpSession;
+    embeddedSessionId: string;
+    smartAccountAddress: Hex;
+    deviceBindingId: string;
+    highTrustToken: string;
+  }): Promise<EmbeddedSessionGrant>;
+  executeSession(input: {
+    emailSession: EmailOtpSession;
+    embeddedSessionId: string;
+    userOp: UserOperationDraft;
+    target: Hex;
+    data: Hex;
+    value?: bigint | number | string;
+    paymasterValiditySec?: string;
+    metadata?: Record<string, unknown>;
+    waitForReceipt?: boolean;
+  }): Promise<DirectRelayExecutionResult>;
   endSession(input: { emailSession: EmailOtpSession; embeddedSessionId: string }): Promise<void>;
   listPasskeyDevices(input: { emailSession: EmailOtpSession }): Promise<PasskeyDeviceInventory>;
   revokePasskeyDevice(input: {

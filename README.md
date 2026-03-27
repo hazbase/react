@@ -8,7 +8,7 @@
 - standard injected wallet apps with `WalletProvider`
 - passkey-native hazBase smart-wallet apps with `PasskeyAccountProvider`
 
-The passkey flow is intentionally flow-oriented. Instead of wiring every backend step yourself, you create one client and then use helpers like `ensurePasskey()`, `ensureAccount()`, `ensureSession()`, `sponsorAndSend()`, and `sponsorAndSendExecute()`.
+The passkey flow is intentionally flow-oriented. Instead of wiring every backend step yourself, you create one client and then use helpers like `ensurePasskey()`, `ensureAccount()`, `ensureSession()`, `ensureLiveSession()`, `sponsorAndSend()`, and `sponsorAndSendExecute()`.
 
 ## Requirements
 - Node.js >= 18
@@ -196,7 +196,12 @@ High-level helpers:
 - `ensureHighTrust()`
 - `ensureAccount()`
 - `ensureSession()`
+- `grantSession()`
+- `ensureLiveSession()`
 - `sponsorUserOp()`
+- `executeSessionDirect()`
+- `executeSessionDirectExecute()`
+- `executeSessionDirectExecuteBatch()`
 - `sponsorAndSend()`
 - `sponsorAndSendExecute()`
 - `sponsorAndSendExecuteBatch()`
@@ -242,6 +247,7 @@ Advanced escape hatch:
 - `sendOtp()` and `verifyOtp()` manage the application session, not wallet ownership by themselves.
 - `ensureAccount()` will reuse an existing bound smart account when possible and bootstrap only when needed.
 - New embedded sessions always require a fresh `purpose=session` passkey step-up. Existing active sessions are reused until revoked or expired.
+- Backends that expose the V2 bundler path return additive fields such as `accountVariant`, `relayMode`, and `submittedUserOpHash`; existing callers can ignore them safely.
 - Session mode is sponsor-required. The backend returns the final `accountSignature` for the sponsored payload, and the React layer forwards it to the bundler.
 - Embedded sessions use a snapshot of the action profile taken at issuance time. Later profile broadening does not widen already-issued sessions.
 - Profile deactivation still acts as a kill switch for active sessions.
@@ -280,3 +286,8 @@ Use `sponsorAndSendExecute()` when you want the React layer to build `SmartAccou
 - `raw.revokeEmbeddedSession()`
 
 Listing uses app-session auth. Revoke calls require a fresh `purpose=reauth` passkey step-up token. Device revoke cascades to active embedded sessions on that device.
+
+---
+
+## License
+Apache-2.0

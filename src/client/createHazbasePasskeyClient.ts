@@ -4,6 +4,8 @@ import {
   completePasskeyAssertion,
   completePasskeyRegistration,
   endEmbeddedSession,
+  executeEmbeddedSession,
+  grantEmbeddedSession,
   listEmbeddedSessions,
   listPasskeyDevices,
   lookupPasskeyAccount,
@@ -19,6 +21,7 @@ import {
 } from '@hazbase/auth';
 import { createPasskeyAssertionCredential, createPasskeyRegistrationCredential } from '../passkey/browserPasskey';
 import type {
+  DirectRelayExecutionResult,
   EmailOtpSession,
   EmbeddedSessionGrant,
   EmbeddedSessionInventory,
@@ -88,22 +91,24 @@ export function createHazbasePasskeyClient(
       });
       return { ...result } as PasskeyAssertionResult;
     },
-    getAccountDescriptor: async ({ emailSession, deviceBindingId, accountSalt, chainId }) => {
+    getAccountDescriptor: async ({ emailSession, deviceBindingId, accountSalt, chainId, accountVariant }) => {
       const result = await requestPasskeyAccountDescriptor({
         emailSession: emailSession.accessToken,
         deviceBindingId,
         ...(accountSalt ? { accountSalt } : {}),
         ...(chainId != null ? { chainId } : {}),
+        ...(accountVariant ? { accountVariant } : {}),
       });
       return { ...result } as PasskeyAccountDescriptor;
     },
-    bootstrapAccount: async ({ emailSession, deviceBindingId, highTrustToken, accountSalt, chainId, metadata }) => {
+    bootstrapAccount: async ({ emailSession, deviceBindingId, highTrustToken, accountSalt, chainId, accountVariant, metadata }) => {
       const result = await bootstrapPasskeyAccount({
         emailSession: emailSession.accessToken,
         deviceBindingId,
         highTrustToken,
         ...(accountSalt ? { accountSalt } : {}),
         ...(chainId != null ? { chainId } : {}),
+        ...(accountVariant ? { accountVariant } : {}),
         ...(metadata ? { metadata } : {}),
       });
       return { ...result } as PasskeyAccountBootstrapResult;
@@ -136,6 +141,40 @@ export function createHazbasePasskeyClient(
         ...(metadata ? { metadata } : {}),
       });
       return { ...result } as EmbeddedSessionGrant;
+    },
+    grantSession: async ({ emailSession, embeddedSessionId, smartAccountAddress, deviceBindingId, highTrustToken }) => {
+      const result = await grantEmbeddedSession({
+        emailSession: emailSession.accessToken,
+        embeddedSessionId,
+        smartAccountAddress,
+        deviceBindingId,
+        highTrustToken,
+      });
+      return { ...result } as EmbeddedSessionGrant;
+    },
+    executeSession: async ({ emailSession, embeddedSessionId, userOp, target, data, value, paymasterValiditySec, metadata, waitForReceipt }) => {
+      const result = await executeEmbeddedSession({
+        emailSession: emailSession.accessToken,
+        embeddedSessionId,
+        userOp: {
+          sender: userOp.sender,
+          nonce: String(userOp.nonce),
+          ...(userOp.initCode ? { initCode: userOp.initCode } : {}),
+          callData: userOp.callData,
+          callGasLimit: String(userOp.callGasLimit),
+          verificationGasLimit: String(userOp.verificationGasLimit),
+          ...(userOp.preVerificationGas != null ? { preVerificationGas: String(userOp.preVerificationGas) } : {}),
+          ...(userOp.maxFeePerGas != null ? { maxFeePerGas: String(userOp.maxFeePerGas) } : {}),
+          ...(userOp.maxPriorityFeePerGas != null ? { maxPriorityFeePerGas: String(userOp.maxPriorityFeePerGas) } : {}),
+        },
+        target,
+        data,
+        ...(value != null ? { value: String(value) } : {}),
+        ...(paymasterValiditySec != null ? { paymasterValiditySec } : {}),
+        ...(metadata ? { metadata } : {}),
+        ...(waitForReceipt != null ? { waitForReceipt } : {}),
+      });
+      return { ...result } as DirectRelayExecutionResult;
     },
     endSession: async ({ emailSession, embeddedSessionId }) => {
       await endEmbeddedSession({ emailSession: emailSession.accessToken, embeddedSessionId });

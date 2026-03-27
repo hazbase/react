@@ -57,7 +57,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@hazbase/auth": "^0.1.1",
+    "@hazbase/auth": "^0.4.0",
     "@hazbase/kit": "^0.2.0"
   }
 }

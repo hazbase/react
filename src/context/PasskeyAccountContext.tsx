@@ -4,6 +4,7 @@ import { createExecuteBatchUserOp, createExecuteUserOp, type SmartAccountCall } 
 import type {
   BundlerSendResult,
   BundlerUserOperation,
+  DirectRelayExecutionResult,
   EmailOtpSession,
   EmbeddedSessionGrant,
   HazbasePasskeyClient,
@@ -117,6 +118,21 @@ export interface PasskeyAccountActions {
     metadata?: Record<string, unknown>;
     forceNew?: boolean;
   }): Promise<EmbeddedSessionGrant>;
+  grantSession(options?: {
+    embeddedSessionId?: string;
+    actionProfileKey?: string;
+    sessionKeyAddress?: Hex;
+    metadata?: Record<string, unknown>;
+    forceNew?: boolean;
+    forceGrant?: boolean;
+  }): Promise<EmbeddedSessionGrant>;
+  ensureLiveSession(options?: {
+    actionProfileKey?: string;
+    sessionKeyAddress?: Hex;
+    metadata?: Record<string, unknown>;
+    forceNew?: boolean;
+    forceGrant?: boolean;
+  }): Promise<EmbeddedSessionGrant>;
   refreshAccount(input?: { smartAccountAddress?: Hex }): Promise<Record<string, unknown>>;
   authorizeOwnerUserOp(input: { smartAccountAddress?: Hex; userOpHash: Hex; validForSec?: number }): Promise<OwnerUserOpAuthorization>;
   sponsorUserOp(input: {
@@ -130,6 +146,49 @@ export interface PasskeyAccountActions {
     signingMode?: SessionSigningMode;
     metadata?: Record<string, unknown>;
   }): Promise<SponsorUserOpResult>;
+  executeSessionDirect(input: {
+    embeddedSessionId?: string;
+    actionProfileKey?: string;
+    userOp: UserOperationDraft;
+    target: Hex;
+    data: Hex;
+    value?: bigint | number | string;
+    paymasterValiditySec?: string;
+    metadata?: Record<string, unknown>;
+    waitForReceipt?: boolean;
+  }): Promise<DirectRelayExecutionResult>;
+  executeSessionDirectExecute(input: {
+    embeddedSessionId?: string;
+    actionProfileKey?: string;
+    nonce: bigint | number | string;
+    target: Hex;
+    data: Hex;
+    value?: bigint | number | string;
+    initCode?: Hex;
+    callGasLimit: bigint | number | string;
+    verificationGasLimit: bigint | number | string;
+    preVerificationGas: bigint | number | string;
+    maxFeePerGas: bigint | number | string;
+    maxPriorityFeePerGas: bigint | number | string;
+    paymasterValiditySec?: string;
+    metadata?: Record<string, unknown>;
+    waitForReceipt?: boolean;
+  }): Promise<DirectRelayExecutionResult>;
+  executeSessionDirectExecuteBatch(input: {
+    embeddedSessionId?: string;
+    actionProfileKey?: string;
+    nonce: bigint | number | string;
+    calls: SmartAccountCall[];
+    initCode?: Hex;
+    callGasLimit: bigint | number | string;
+    verificationGasLimit: bigint | number | string;
+    preVerificationGas: bigint | number | string;
+    maxFeePerGas: bigint | number | string;
+    maxPriorityFeePerGas: bigint | number | string;
+    paymasterValiditySec?: string;
+    metadata?: Record<string, unknown>;
+    waitForReceipt?: boolean;
+  }): Promise<DirectRelayExecutionResult>;
   sponsorAndSend(input: {
     mode?: 'owner' | 'session';
     embeddedSessionId?: string;
@@ -476,6 +535,100 @@ export function PasskeyAccountProvider({
     }
   }, [applyError, client, defaultActionProfileKey, ensureAccount, ensureHighTrust, requireDeviceBinding, requireEmailSession, requireHighTrust, state.serverSession, state.smartAccountAddress]);
 
+  const grantSession = useCallback(async ({
+    embeddedSessionId,
+    actionProfileKey,
+    sessionKeyAddress,
+    metadata,
+    forceNew = false,
+    forceGrant = false,
+  }: {
+    embeddedSessionId?: string;
+    actionProfileKey?: string;
+    sessionKeyAddress?: Hex;
+    metadata?: Record<string, unknown>;
+    forceNew?: boolean;
+    forceGrant?: boolean;
+  } = {}) => {
+    if (!forceGrant && state.serverSession?.sessionId && state.serverSession?.grantStatus === 'granted') {
+      return state.serverSession;
+    }
+
+    try {
+      const issuedSession = embeddedSessionId && state.serverSession?.sessionId === embeddedSessionId
+        ? state.serverSession
+        : await ensureSession({
+            actionProfileKey,
+            ...(sessionKeyAddress ? { sessionKeyAddress } : {}),
+            ...(metadata ? { metadata } : {}),
+            forceNew,
+          });
+      const sessionId = embeddedSessionId ?? issuedSession.sessionId;
+      if (!sessionId) throw new Error('Embedded session is required');
+      const accountAddress = state.smartAccountAddress ?? (await ensureAccount()).smartAccountAddress;
+      const stepUp = await ensureHighTrust({ purpose: 'session', force: true });
+      const granted = await client.grantSession({
+        emailSession: requireEmailSession(),
+        embeddedSessionId: sessionId,
+        smartAccountAddress: accountAddress,
+        deviceBindingId: requireDeviceBinding(),
+        highTrustToken: stepUp.highTrustToken ?? requireHighTrust(),
+      });
+      const merged = {
+        ...issuedSession,
+        ...granted,
+        sessionId: granted.sessionId ?? sessionId,
+        grantStatus: granted.grantStatus ?? 'granted',
+      } as EmbeddedSessionGrant;
+      setState((prev) => ({
+        ...prev,
+        status: 'ready',
+        flowStep: 'session_granted',
+        serverSession: merged,
+        error: null,
+      }));
+      return merged;
+    } catch (error) {
+      return applyError(error);
+    }
+  }, [
+    applyError,
+    client,
+    ensureAccount,
+    ensureHighTrust,
+    ensureSession,
+    requireDeviceBinding,
+    requireEmailSession,
+    requireHighTrust,
+    state.serverSession,
+    state.smartAccountAddress,
+  ]);
+
+  const ensureLiveSession = useCallback(async ({
+    actionProfileKey,
+    sessionKeyAddress,
+    metadata,
+    forceNew = false,
+    forceGrant = false,
+  }: {
+    actionProfileKey?: string;
+    sessionKeyAddress?: Hex;
+    metadata?: Record<string, unknown>;
+    forceNew?: boolean;
+    forceGrant?: boolean;
+  } = {}) => {
+    if (!forceNew && !forceGrant && state.serverSession?.sessionId && state.serverSession?.grantStatus === 'granted') {
+      return state.serverSession;
+    }
+    return grantSession({
+      actionProfileKey,
+      ...(sessionKeyAddress ? { sessionKeyAddress } : {}),
+      ...(metadata ? { metadata } : {}),
+      forceNew,
+      forceGrant,
+    });
+  }, [grantSession, state.serverSession]);
+
   const authorizeOwnerUserOpAction = useCallback(async ({ smartAccountAddress, userOpHash, validForSec }: { smartAccountAddress?: Hex; userOpHash: Hex; validForSec?: number }) => {
     try {
       const account = smartAccountAddress ?? state.smartAccountAddress ?? (await ensureAccount()).smartAccountAddress;
@@ -532,6 +685,162 @@ export function PasskeyAccountProvider({
       return applyError(error);
     }
   }, [applyError, client, ensureSession, requireEmailSession, state.serverSession?.sessionId]);
+
+  const executeSessionDirect = useCallback(async ({
+    embeddedSessionId,
+    actionProfileKey,
+    userOp,
+    target,
+    data,
+    value,
+    paymasterValiditySec,
+    metadata,
+    waitForReceipt = true,
+  }: {
+    embeddedSessionId?: string;
+    actionProfileKey?: string;
+    userOp: UserOperationDraft;
+    target: Hex;
+    data: Hex;
+    value?: bigint | number | string;
+    paymasterValiditySec?: string;
+    metadata?: Record<string, unknown>;
+    waitForReceipt?: boolean;
+  }) => {
+    try {
+      const sessionRecord = embeddedSessionId && state.serverSession?.sessionId === embeddedSessionId
+        ? state.serverSession
+        : await ensureLiveSession({ actionProfileKey });
+      const sessionId = embeddedSessionId ?? sessionRecord.sessionId;
+      if (!sessionId) throw new Error('Embedded session is required');
+      const result = await client.executeSession({
+        emailSession: requireEmailSession(),
+        embeddedSessionId: sessionId,
+        userOp,
+        target,
+        data,
+        ...(value != null ? { value } : {}),
+        ...(paymasterValiditySec ? { paymasterValiditySec } : {}),
+        ...(metadata ? { metadata } : {}),
+        waitForReceipt,
+      });
+      setState((prev) => ({
+        ...prev,
+        status: 'ready',
+        flowStep: 'session_granted',
+        serverSession: prev.serverSession
+          ? {
+              ...prev.serverSession,
+              relayMode: result.relayMode ?? prev.serverSession.relayMode,
+              lastExecutionTxHash: result.transactionHash ?? prev.serverSession.lastExecutionTxHash,
+            }
+          : prev.serverSession,
+        error: null,
+      }));
+      return result;
+    } catch (error) {
+      return applyError(error);
+    }
+  }, [applyError, client, ensureLiveSession, requireEmailSession, state.serverSession]);
+
+  const executeSessionDirectExecute = useCallback(async ({
+    nonce,
+    target,
+    data,
+    value,
+    initCode,
+    callGasLimit,
+    verificationGasLimit,
+    preVerificationGas,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    ...rest
+  }: {
+    embeddedSessionId?: string;
+    actionProfileKey?: string;
+    nonce: bigint | number | string;
+    target: Hex;
+    data: Hex;
+    value?: bigint | number | string;
+    initCode?: Hex;
+    callGasLimit: bigint | number | string;
+    verificationGasLimit: bigint | number | string;
+    preVerificationGas: bigint | number | string;
+    maxFeePerGas: bigint | number | string;
+    maxPriorityFeePerGas: bigint | number | string;
+    paymasterValiditySec?: string;
+    metadata?: Record<string, unknown>;
+    waitForReceipt?: boolean;
+  }) => {
+    const sender = state.smartAccountAddress ?? (await ensureAccount()).smartAccountAddress;
+    const userOp = createExecuteUserOp({
+      sender,
+      nonce,
+      target,
+      data,
+      ...(value != null ? { value } : {}),
+      ...(initCode ? { initCode } : {}),
+      callGasLimit,
+      verificationGasLimit,
+      preVerificationGas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    });
+    return executeSessionDirect({
+      ...rest,
+      userOp,
+      target,
+      data,
+      ...(value != null ? { value } : {}),
+    });
+  }, [ensureAccount, executeSessionDirect, state.smartAccountAddress]);
+
+  const executeSessionDirectExecuteBatch = useCallback(async ({
+    nonce,
+    calls,
+    initCode,
+    callGasLimit,
+    verificationGasLimit,
+    preVerificationGas,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    ...rest
+  }: {
+    embeddedSessionId?: string;
+    actionProfileKey?: string;
+    nonce: bigint | number | string;
+    calls: SmartAccountCall[];
+    initCode?: Hex;
+    callGasLimit: bigint | number | string;
+    verificationGasLimit: bigint | number | string;
+    preVerificationGas: bigint | number | string;
+    maxFeePerGas: bigint | number | string;
+    maxPriorityFeePerGas: bigint | number | string;
+    paymasterValiditySec?: string;
+    metadata?: Record<string, unknown>;
+    waitForReceipt?: boolean;
+  }) => {
+    if (calls.length === 0) throw new Error('calls must not be empty');
+    const sender = state.smartAccountAddress ?? (await ensureAccount()).smartAccountAddress;
+    const userOp = createExecuteBatchUserOp({
+      sender,
+      nonce,
+      calls,
+      ...(initCode ? { initCode } : {}),
+      callGasLimit,
+      verificationGasLimit,
+      preVerificationGas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    });
+    return executeSessionDirect({
+      ...rest,
+      userOp,
+      target: calls[0].target,
+      data: calls[0].data,
+      value: calls[0].value ?? 0,
+    });
+  }, [ensureAccount, executeSessionDirect, state.smartAccountAddress]);
 
   const sponsorAndSend = useCallback(async ({
     mode = 'session',
@@ -786,9 +1095,14 @@ export function PasskeyAccountProvider({
     ensureHighTrust,
     ensureAccount,
     ensureSession,
+    grantSession,
+    ensureLiveSession,
     refreshAccount,
     authorizeOwnerUserOp: authorizeOwnerUserOpAction,
     sponsorUserOp: sponsorUserOpAction,
+    executeSessionDirect,
+    executeSessionDirectExecute,
+    executeSessionDirectExecuteBatch,
     sponsorAndSend,
     sponsorAndSendExecute,
     sponsorAndSendExecuteBatch,
@@ -803,6 +1117,11 @@ export function PasskeyAccountProvider({
     ensureHighTrust,
     ensurePasskey,
     ensureSession,
+    ensureLiveSession,
+    executeSessionDirect,
+    executeSessionDirectExecute,
+    executeSessionDirectExecuteBatch,
+    grantSession,
     refreshAccount,
     sendOtp,
     signOut,
