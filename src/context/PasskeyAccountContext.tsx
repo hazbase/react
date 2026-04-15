@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { AbiCoder, keccak256 } from 'ethers';
 import { createExecuteBatchUserOp, createExecuteUserOp, type SmartAccountCall } from '../userop/accountExecute';
 import type {
@@ -18,6 +18,8 @@ import type {
   PasskeyRegistrationResult,
   SessionSigningMode,
   SponsorUserOpResult,
+  SupportedChainSummary,
+  SupportedChainsResult,
   UserOperationDraft,
 } from '../types';
 
@@ -103,10 +105,14 @@ export interface PasskeyAccountState {
   descriptor: PasskeyAccountDescriptor | null;
   smartAccountAddress: Hex | null;
   serverSession: EmbeddedSessionGrant | null;
+  supportedChains: SupportedChainSummary[];
+  preferredChainId: number | null;
   error: string | null;
 }
 
 export interface PasskeyAccountActions {
+  refreshSupportedChains(): Promise<SupportedChainsResult>;
+  selectChain(chainId: number): void;
   sendOtp(input: { email: string; purpose?: string }): Promise<unknown>;
   verifyOtp(input: { email: string; code: string; purpose?: string }): Promise<EmailOtpSession>;
   ensurePasskey(options?: { deviceId?: string; deviceLabel?: string }): Promise<PasskeyRegistrationResult>;
@@ -133,8 +139,8 @@ export interface PasskeyAccountActions {
     forceNew?: boolean;
     forceGrant?: boolean;
   }): Promise<EmbeddedSessionGrant>;
-  refreshAccount(input?: { smartAccountAddress?: Hex }): Promise<Record<string, unknown>>;
-  authorizeOwnerUserOp(input: { smartAccountAddress?: Hex; userOpHash: Hex; validForSec?: number }): Promise<OwnerUserOpAuthorization>;
+  refreshAccount(input?: { smartAccountAddress?: Hex; chainId?: number }): Promise<Record<string, unknown>>;
+  authorizeOwnerUserOp(input: { smartAccountAddress?: Hex; chainId?: number; userOpHash: Hex; validForSec?: number }): Promise<OwnerUserOpAuthorization>;
   sponsorUserOp(input: {
     embeddedSessionId?: string;
     actionProfileKey?: string;
@@ -272,7 +278,7 @@ export function PasskeyAccountProvider({
   defaultActionProfileKey,
   defaultOwnerValidForSec,
   bundlerRpcUrl,
-  entryPointAddress = DEFAULT_ENTRYPOINT_ADDRESS,
+  entryPointAddress,
   bundlerWaitMs = 750,
   bundlerMaxAttempts = 40,
 }: PasskeyAccountProviderProps) {
@@ -287,6 +293,8 @@ export function PasskeyAccountProvider({
     descriptor: null,
     smartAccountAddress: null,
     serverSession: null,
+    supportedChains: [],
+    preferredChainId: defaultChainId ?? null,
     error: null,
   });
 
@@ -312,13 +320,40 @@ export function PasskeyAccountProvider({
   }, [state.highTrustToken]);
 
   const resolveChainId = useCallback((override?: number) => {
-    return override ?? state.descriptor?.chainId ?? defaultChainId;
-  }, [defaultChainId, state.descriptor?.chainId]);
+    return override ?? state.preferredChainId ?? state.descriptor?.chainId ?? defaultChainId;
+  }, [defaultChainId, state.descriptor?.chainId, state.preferredChainId]);
 
   const resolveBundlerUrl = useCallback((chainId: number) => {
     if (bundlerRpcUrl) return bundlerRpcUrl;
+    const supported = state.supportedChains.find((chain) => chain.chainId === chainId);
+    if (supported?.bundlerRpcUrl) return supported.bundlerRpcUrl;
     return `${DEFAULT_BUNDLER_BASE_URL}/${chainId}`;
-  }, [bundlerRpcUrl]);
+  }, [bundlerRpcUrl, state.supportedChains]);
+
+  const resolveEntryPointAddress = useCallback((chainId: number): Hex => {
+    if (entryPointAddress) return entryPointAddress;
+    const supported = state.supportedChains.find((chain) => chain.chainId === chainId);
+    if (supported?.entryPointAddress) return supported.entryPointAddress as Hex;
+    return DEFAULT_ENTRYPOINT_ADDRESS;
+  }, [entryPointAddress, state.supportedChains]);
+
+  const refreshSupportedChains = useCallback(async () => {
+    const result = await client.listSupportedChains();
+    setState((prev) => ({
+      ...prev,
+      supportedChains: result.chains ?? [],
+      preferredChainId: prev.preferredChainId ?? defaultChainId ?? result.defaultChainId ?? null,
+    }));
+    return result;
+  }, [client, defaultChainId]);
+
+  const selectChain = useCallback((chainId: number) => {
+    setState((prev) => ({ ...prev, preferredChainId: chainId }));
+  }, []);
+
+  useEffect(() => {
+    void refreshSupportedChains().catch(() => undefined);
+  }, [refreshSupportedChains]);
 
   const sendOtp = useCallback(async ({ email, purpose }: { email: string; purpose?: string }) => {
     try {
@@ -410,11 +445,12 @@ export function PasskeyAccountProvider({
     }
   }, [applyError, client, requireDeviceBinding, requireEmailSession, state.deviceBindingId, state.highTrustExpiresAt, state.highTrustToken, state.passkeyCredentialId]);
 
-  const refreshAccount = useCallback(async ({ smartAccountAddress }: { smartAccountAddress?: Hex } = {}) => {
+  const refreshAccount = useCallback(async ({ smartAccountAddress, chainId }: { smartAccountAddress?: Hex; chainId?: number } = {}) => {
     try {
       const record = await client.lookupAccount({
         emailSession: requireEmailSession(),
         ...(smartAccountAddress ? { smartAccountAddress } : {}),
+        ...(smartAccountAddress ? { chainId: resolveChainId(chainId) } : {}),
         ...(!smartAccountAddress && state.deviceBindingId ? { deviceBindingId: state.deviceBindingId } : {}),
       });
       setState((prev) => ({
@@ -422,13 +458,14 @@ export function PasskeyAccountProvider({
         status: 'ready',
         flowStep: record.smartAccountAddress ? 'account_ready' : prev.flowStep,
         smartAccountAddress: (record.smartAccountAddress as Hex | undefined) ?? prev.smartAccountAddress,
+        preferredChainId: (record.chainId as number | undefined) ?? prev.preferredChainId,
         error: null,
       }));
       return record;
     } catch (error) {
       return applyError(error);
     }
-  }, [applyError, client, requireEmailSession, state.deviceBindingId]);
+  }, [applyError, client, requireEmailSession, resolveChainId, state.deviceBindingId]);
 
   const ensureAccount = useCallback(async ({ accountSalt, chainId, metadata, forceBootstrap = false }: { accountSalt?: string; chainId?: number; metadata?: Record<string, unknown>; forceBootstrap?: boolean } = {}) => {
     try {
@@ -445,6 +482,7 @@ export function PasskeyAccountProvider({
       const lookup = await client.lookupAccount({
         emailSession,
         smartAccountAddress: descriptor.predictedAccountAddress,
+        chainId: descriptor.chainId,
       });
 
       if (!forceBootstrap && lookup.smartAccountAddress) {
@@ -459,6 +497,7 @@ export function PasskeyAccountProvider({
           flowStep: 'account_ready',
           descriptor,
           smartAccountAddress: readyResult.smartAccountAddress,
+          preferredChainId: descriptor.chainId,
           error: null,
         }));
         return readyResult;
@@ -484,6 +523,7 @@ export function PasskeyAccountProvider({
         flowStep: 'account_ready',
         descriptor: result,
         smartAccountAddress: result.smartAccountAddress,
+        preferredChainId: result.chainId,
         error: null,
       }));
       return readyResult;
@@ -517,6 +557,7 @@ export function PasskeyAccountProvider({
         emailSession,
         deviceBindingId,
         smartAccountAddress: accountAddress,
+        ...(resolveChainId() != null ? { chainId: resolveChainId() } : {}),
         actionProfileKey: profileKey,
         highTrustToken: stepUp.highTrustToken ?? requireHighTrust(),
         ...(sessionKeyAddress ? { sessionKeyAddress } : {}),
@@ -533,7 +574,7 @@ export function PasskeyAccountProvider({
     } catch (error) {
       return applyError(error);
     }
-  }, [applyError, client, defaultActionProfileKey, ensureAccount, ensureHighTrust, requireDeviceBinding, requireEmailSession, requireHighTrust, state.serverSession, state.smartAccountAddress]);
+  }, [applyError, client, defaultActionProfileKey, ensureAccount, ensureHighTrust, requireDeviceBinding, requireEmailSession, requireHighTrust, resolveChainId, state.serverSession, state.smartAccountAddress]);
 
   const grantSession = useCallback(async ({
     embeddedSessionId,
@@ -629,7 +670,7 @@ export function PasskeyAccountProvider({
     });
   }, [grantSession, state.serverSession]);
 
-  const authorizeOwnerUserOpAction = useCallback(async ({ smartAccountAddress, userOpHash, validForSec }: { smartAccountAddress?: Hex; userOpHash: Hex; validForSec?: number }) => {
+  const authorizeOwnerUserOpAction = useCallback(async ({ smartAccountAddress, chainId, userOpHash, validForSec }: { smartAccountAddress?: Hex; chainId?: number; userOpHash: Hex; validForSec?: number }) => {
     try {
       const account = smartAccountAddress ?? state.smartAccountAddress ?? (await ensureAccount()).smartAccountAddress;
       const stepUp = await ensureHighTrust({ purpose: 'reauth' });
@@ -638,13 +679,14 @@ export function PasskeyAccountProvider({
         deviceBindingId: requireDeviceBinding(),
         highTrustToken: stepUp.highTrustToken ?? requireHighTrust(),
         smartAccountAddress: account,
+        ...(resolveChainId(chainId) != null ? { chainId: resolveChainId(chainId) } : {}),
         userOpHash,
         ...(validForSec != null ? { validForSec } : defaultOwnerValidForSec != null ? { validForSec: defaultOwnerValidForSec } : {}),
       });
     } catch (error) {
       return applyError(error);
     }
-  }, [applyError, client, defaultOwnerValidForSec, ensureAccount, ensureHighTrust, requireDeviceBinding, requireEmailSession, requireHighTrust, state.smartAccountAddress]);
+  }, [applyError, client, defaultOwnerValidForSec, ensureAccount, ensureHighTrust, requireDeviceBinding, requireEmailSession, requireHighTrust, resolveChainId, state.smartAccountAddress]);
 
   const sponsorUserOpAction = useCallback(async ({
     embeddedSessionId,
@@ -896,7 +938,7 @@ export function PasskeyAccountProvider({
 
       const localUserOpHash = getUserOpHash({
         chainId,
-        entryPointAddress,
+        entryPointAddress: resolveEntryPointAddress(chainId),
         userOp: finalizedUserOp,
       });
 
@@ -917,7 +959,10 @@ export function PasskeyAccountProvider({
       }
 
       const bundlerUrl = resolveBundlerUrl(chainId);
-      const submittedUserOpHash = await sendBundlerRpc<Hex>(bundlerUrl, 'eth_sendUserOperation', [finalizedUserOp, entryPointAddress]);
+      const submittedUserOpHash = await sendBundlerRpc<Hex>(bundlerUrl, 'eth_sendUserOperation', [
+        finalizedUserOp,
+        resolveEntryPointAddress(chainId),
+      ]);
       const receiptEnvelope = waitForReceipt
         ? await waitForBundlerReceipt(bundlerUrl, submittedUserOpHash, bundlerWaitMs, bundlerMaxAttempts)
         : null;
@@ -944,8 +989,8 @@ export function PasskeyAccountProvider({
     client,
     ensureAccount,
     ensureSession,
-    entryPointAddress,
     requireEmailSession,
+    resolveEntryPointAddress,
     resolveBundlerUrl,
     resolveChainId,
     state.serverSession,
@@ -1083,12 +1128,16 @@ export function PasskeyAccountProvider({
       descriptor: null,
       smartAccountAddress: null,
       serverSession: null,
+      supportedChains: state.supportedChains,
+      preferredChainId: defaultChainId ?? null,
       error: null,
     });
-  }, []);
+  }, [defaultChainId, state.supportedChains]);
 
   const value = useMemo<PasskeyAccountState & PasskeyAccountActions>(() => ({
     ...state,
+    refreshSupportedChains,
+    selectChain,
     sendOtp,
     verifyOtp,
     ensurePasskey,
@@ -1122,7 +1171,9 @@ export function PasskeyAccountProvider({
     executeSessionDirectExecute,
     executeSessionDirectExecuteBatch,
     grantSession,
+    refreshSupportedChains,
     refreshAccount,
+    selectChain,
     sendOtp,
     signOut,
     sponsorAndSend,

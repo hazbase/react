@@ -6,6 +6,7 @@ import {
   endEmbeddedSession,
   executeEmbeddedSession,
   grantEmbeddedSession,
+  listSupportedChains,
   listEmbeddedSessions,
   listPasskeyDevices,
   lookupPasskeyAccount,
@@ -53,6 +54,7 @@ export function createHazbasePasskeyClient(
   const defaultOtpPurpose = options.defaultOtpPurpose ?? 'smart_wallet_sign_in';
 
   return {
+    listSupportedChains: async () => listSupportedChains(),
     sendOtp: async ({ email, purpose }) => requestEmailOtp({ email, purpose: purpose ?? defaultOtpPurpose }),
     verifyOtp: async ({ email, code, purpose }) => {
       const result = await verifyEmailOtp({ email, code, purpose: purpose ?? defaultOtpPurpose });
@@ -113,28 +115,31 @@ export function createHazbasePasskeyClient(
       });
       return { ...result } as PasskeyAccountBootstrapResult;
     },
-    lookupAccount: async ({ emailSession, deviceBindingId, smartAccountAddress }) =>
+    lookupAccount: async ({ emailSession, deviceBindingId, smartAccountAddress, chainId }) =>
       lookupPasskeyAccount({
         emailSession: emailSession.accessToken,
         ...(deviceBindingId ? { deviceBindingId } : {}),
         ...(smartAccountAddress ? { smartAccountAddress } : {}),
+        ...(chainId != null ? { chainId } : {}),
       }),
-    authorizeOwnerUserOp: async ({ emailSession, deviceBindingId, highTrustToken, smartAccountAddress, userOpHash, validForSec }) => {
+    authorizeOwnerUserOp: async ({ emailSession, deviceBindingId, highTrustToken, smartAccountAddress, chainId, userOpHash, validForSec }) => {
       const result = await authorizeOwnerUserOp({
         emailSession: emailSession.accessToken,
         deviceBindingId,
         highTrustToken,
         smartAccountAddress,
+        ...(chainId != null ? { chainId } : {}),
         userOpHash,
         ...(validForSec != null ? { validForSec } : {}),
       });
       return { ...result } as OwnerUserOpAuthorization;
     },
-    startSession: async ({ emailSession, deviceBindingId, smartAccountAddress, actionProfileKey, highTrustToken, sessionKeyAddress, metadata }) => {
+    startSession: async ({ emailSession, deviceBindingId, smartAccountAddress, chainId, actionProfileKey, highTrustToken, sessionKeyAddress, metadata }) => {
       const result = await startEmbeddedSession({
         emailSession: emailSession.accessToken,
         deviceBindingId,
         smartAccountAddress,
+        ...(chainId != null ? { chainId } : {}),
         actionProfileKey,
         highTrustToken,
         ...(sessionKeyAddress ? { sessionKeyAddress } : {}),

@@ -15,6 +15,41 @@ export interface ChainConfig {
   blockExplorers?: { name: string; url: string }[];
 }
 
+export interface SupportedChainSummary {
+  chainId: number;
+  key: string;
+  name: string;
+  kind: 'testnet' | 'mainnet';
+  rpcUrl: string;
+  bundlerRpcUrl?: string | null;
+  entryPointAddress: Hex | string;
+  paymasterAddress?: Hex | string | null;
+  defaultAccountVariant?: string;
+  defaultProfileKey?: string | null;
+  blockExplorerUrl?: string | null;
+  capabilities?: {
+    owner: boolean;
+    session: boolean;
+    sponsor: boolean;
+    firstPartyProfiles: boolean;
+  };
+}
+
+export interface SupportedChainsResult {
+  defaultChainId: number;
+  chains: SupportedChainSummary[];
+  status?: string;
+}
+
+export interface EmailOtpAccountSummary {
+  smartAccountAddress: Hex;
+  chainId: number;
+  accountVariant?: string;
+  relayMode?: string;
+  primaryDeviceBindingId?: string;
+  updatedAt?: string;
+}
+
 export interface EmailOtpSession {
   email: string;
   accessToken: string;
@@ -25,11 +60,13 @@ export interface EmailOtpSession {
   smartAccountAddress?: Hex;
   accountVariant?: string;
   relayMode?: string;
+  accounts?: EmailOtpAccountSummary[];
   [key: string]: unknown;
 }
 
 export interface EmbeddedSessionGrant {
   sessionId?: string;
+  chainId?: number;
   sessionKeyAddress?: Hex;
   validUntil?: string | number;
   level?: number | string;
@@ -74,6 +111,7 @@ export interface RevokePasskeyDeviceResult {
 export interface EmbeddedSessionRecord {
   embeddedSessionId: string;
   smartAccountAddress: Hex;
+  chainId?: number;
   deviceBindingId: string;
   actionProfileKey: string;
   sessionKeyAddress?: Hex;
@@ -96,6 +134,7 @@ export interface EmbeddedSessionInventory {
 
 export interface RevokeEmbeddedSessionResult {
   embeddedSessionId: string;
+  chainId?: number;
   accountVariant?: string;
   relayMode?: string;
   revokeTxHash?: Hex | string | null;
@@ -229,6 +268,7 @@ export interface SponsorUserOpResult {
   approved: boolean;
   expiresAt: string;
   profileKey: string;
+  chainId?: number | null;
   paymasterAndData: Hex;
   validAfter: number;
   validUntil: number;
@@ -241,6 +281,7 @@ export interface SponsorUserOpResult {
 }
 
 export interface DirectRelayExecutionResult {
+  chainId?: number;
   accountVariant?: string;
   relayMode?: string;
   bundlerRpcUrl?: string;
@@ -294,6 +335,7 @@ export interface BundlerSendResult {
 }
 
 export interface HazbasePasskeyClient {
+  listSupportedChains(): Promise<SupportedChainsResult>;
   sendOtp(input: { email: string; purpose?: string }): Promise<unknown>;
   verifyOtp(input: { email: string; code: string; purpose?: string }): Promise<EmailOtpSession>;
   registerPasskey(input: { emailSession: EmailOtpSession; deviceId?: string; deviceLabel?: string }): Promise<PasskeyRegistrationResult>;
@@ -308,12 +350,13 @@ export interface HazbasePasskeyClient {
     accountVariant?: string;
     metadata?: Record<string, unknown>;
   }): Promise<PasskeyAccountBootstrapResult>;
-  lookupAccount(input: { emailSession: EmailOtpSession; deviceBindingId?: string; smartAccountAddress?: Hex }): Promise<Record<string, unknown>>;
+  lookupAccount(input: { emailSession: EmailOtpSession; deviceBindingId?: string; smartAccountAddress?: Hex; chainId?: number }): Promise<Record<string, unknown>>;
   authorizeOwnerUserOp(input: {
     emailSession: EmailOtpSession;
     deviceBindingId: string;
     highTrustToken: string;
     smartAccountAddress: Hex;
+    chainId?: number;
     userOpHash: Hex;
     validForSec?: number;
   }): Promise<OwnerUserOpAuthorization>;
@@ -321,6 +364,7 @@ export interface HazbasePasskeyClient {
     emailSession: EmailOtpSession;
     deviceBindingId: string;
     smartAccountAddress: Hex;
+    chainId?: number;
     actionProfileKey: string;
     highTrustToken: string;
     sessionKeyAddress?: Hex;
