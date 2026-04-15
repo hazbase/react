@@ -1,6 +1,6 @@
 {
   "name": "@hazbase/react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React toolkit for wallet connection, passkey-native account bootstrap, and sponsored smart-wallet UX built on ethers v6.",
   "author": "IndieSquare Inc <info@hazbase.com>",
   "keywords": [
