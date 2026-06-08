@@ -57,8 +57,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@hazbase/auth": "^0.4.0",
-    "@hazbase/kit": "^0.2.0"
+    "@hazbase/auth": "^0.5.0",
+    "@hazbase/kit": "^0.5.0"
   },
   "overrides": {
     "ws": "^8.21.0",
