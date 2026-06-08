@@ -7,6 +7,8 @@ export function useAddress(): { address: Hex | null; isConnected: boolean } {
   if (!ctx) throw new Error("WalletProvider is missing");
   return {
     address: ctx.account,
-    isConnected: ctx.status === "connected"
+    // Require an actual account, not just 'connected' status: a locked wallet or
+    // a revoked-permissions state can be 'connected' with a null account/signer.
+    isConnected: ctx.status === "connected" && ctx.account != null
   };
 }

@@ -45,6 +45,11 @@ export function WalletProvider({
   });
 
   const lastConnectorKey = useRef("@hazbase/react:last-connector");
+  // Teardown for the currently-bound injected (MetaMask) listeners. Kept in a ref
+  // so it can be invoked on disconnect/unmount/reconnect. Without this, a
+  // disconnected session could be silently revived by a later accountsChanged
+  // event, and listeners would accumulate across connect/disconnect cycles.
+  const unbindInjectedRef = useRef<null | (() => void)>(null);
 
   const resolveChain = useCallback((id: number | null) => {
     if (id == null) return null;
@@ -54,8 +59,14 @@ export function WalletProvider({
   const bindInjectedEvents = useCallback((eth: any, provider: BrowserProvider) => {
     const onAccountsChanged = async (accounts: string[]) => {
       const account = (accounts?.[0] ?? null) as Hex | null;
-      const signer = account ? await provider.getSigner() : null;
-      setState(prev => ({ ...prev, account, signer }));
+      if (!account) {
+        // All accounts disconnected / wallet locked: drop the signer+account and
+        // mark the session 'locked' instead of leaving it falsely 'connected'.
+        setState(prev => ({ ...prev, account: null, signer: null, status: "locked" }));
+        return;
+      }
+      const signer = await provider.getSigner();
+      setState(prev => ({ ...prev, account, signer, status: "connected" }));
     };
 
     const onChainChanged = async (_chainIdHex: string) => {
@@ -99,7 +110,9 @@ export function WalletProvider({
     const account = (await signer.getAddress()) as Hex;
     const net = await provider.getNetwork();
     const chainId = Number(net.chainId);
-    bindInjectedEvents(eth, provider);
+    // Remove any previously-bound listeners before binding fresh ones.
+    unbindInjectedRef.current?.();
+    unbindInjectedRef.current = bindInjectedEvents(eth, provider);
     localStorage.setItem(lastConnectorKey.current, "metamask");
     setState({
       status: "connected",
@@ -133,6 +146,9 @@ export function WalletProvider({
   }, [resolveChain]);
 
   const disconnect = useCallback(() => {
+    // Tear down injected listeners so the session cannot be silently revived.
+    unbindInjectedRef.current?.();
+    unbindInjectedRef.current = null;
     localStorage.removeItem(lastConnectorKey.current);
     setState({
       status: "disconnected",
@@ -227,6 +243,14 @@ export function WalletProvider({
         blockExplorerUrls: params.blockExplorers?.map(b => b.url) ?? []
       }]
     });
+  }, []);
+
+  // Remove injected listeners when the provider unmounts.
+  useEffect(() => {
+    return () => {
+      unbindInjectedRef.current?.();
+      unbindInjectedRef.current = null;
+    };
   }, []);
 
   // Auto-connect last connector if requested

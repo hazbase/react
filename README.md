@@ -289,5 +289,31 @@ Listing uses app-session auth. Revoke calls require a fresh `purpose=reauth` pas
 
 ---
 
+## Security: recommended overrides
+
+Some transitive dependencies of this package carry known advisories with no upstream
+fix yet. Because npm ignores `overrides` declared *inside* a dependency, the only way
+to protect **your own** dependency tree is to add them to your application's
+`package.json` and reinstall:
+
+```jsonc
+{
+  "overrides": {
+    "ws": "^8.21.0",
+    "bfj": "^9.1.3"
+  }
+}
+```
+
+(yarn: use `resolutions`; pnpm: use `pnpm.overrides`.)
+
+- `ws ^8.21.0` — avoids a `ws` advisory in the version `ethers` currently pins.
+- `bfj ^9.1.3` — removes the `snarkjs → bfj → jsonpath` chain (prototype-pollution /
+  code-injection advisories) pulled in via `@hazbase/auth` / `@hazbase/kit`.
+
+These are workarounds until `ethers` / `snarkjs` ship fixed transitive ranges upstream.
+
+---
+
 ## License
 Apache-2.0

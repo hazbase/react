@@ -12,6 +12,23 @@ function ensureBrowserSupport() {
   }
 }
 
+/**
+ * Defense-in-depth: the rpId/origin come from the backend challenge. Bind them to
+ * the actual page before invoking WebAuthn so a compromised/misconfigured backend
+ * cannot silently drive a ceremony against a different Relying Party. rpId must be
+ * the current host or a registrable parent suffix of it; origin must match exactly.
+ */
+function assertChallengeBinding(rpId: string, origin: string): void {
+  const host = window.location.hostname;
+  const rpOk = !!rpId && (host === rpId || host.endsWith(`.${rpId}`));
+  if (!rpOk) {
+    throw new Error(`WebAuthn rpId "${rpId}" is not valid for the current host "${host}"`);
+  }
+  if (origin && origin !== window.location.origin) {
+    throw new Error(`WebAuthn origin "${origin}" does not match the current origin "${window.location.origin}"`);
+  }
+}
+
 function toBase64url(input: ArrayBuffer | Uint8Array | null | undefined): string {
   if (!input) throw new Error('Expected binary data from WebAuthn response');
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
@@ -39,6 +56,7 @@ export async function createPasskeyRegistrationCredential(
   challenge: PasskeyRegistrationChallengeResult,
 ): Promise<PasskeyRegistrationCredential> {
   ensureBrowserSupport();
+  assertChallengeBinding(challenge.rpId, challenge.origin);
   const credential = await navigator.credentials.create({
     publicKey: {
       challenge: fromBase64url(challenge.challenge),
@@ -98,6 +116,7 @@ export async function createPasskeyAssertionCredential(
   challenge: PasskeyAssertionChallengeResult,
 ): Promise<PasskeyAssertionCredential> {
   ensureBrowserSupport();
+  assertChallengeBinding(challenge.rpId, challenge.origin);
   const credential = await navigator.credentials.get({
     publicKey: {
       challenge: fromBase64url(challenge.challenge),
