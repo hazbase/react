@@ -8,6 +8,7 @@
 
 # testing
 /coverage
+/.x402-test-dist
 
 # production
 /build

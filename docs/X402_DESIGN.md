@@ -301,6 +301,8 @@ extension concern.
 
 ### Phase 1: Pure Helpers
 
+Status: implemented.
+
 - Add `src/x402/client.ts`
 - Add `src/x402/url.ts`
 - Add `src/x402/payload.ts`

@@ -46,6 +46,7 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test:x402": "npm run build && tsup src/x402/index.ts --format esm --out-dir .x402-test-dist --clean && X402_TEST_DIST=./.x402-test-dist/index.js node --test test/x402.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "files": [

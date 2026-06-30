@@ -222,6 +222,13 @@ Execute helpers:
 - `createExecuteUserOp()`
 - `createExecuteBatchUserOp()`
 
+x402 pure helpers:
+- `createHazbaseX402Client()`
+- `createX402WalletUrl()`
+- `readX402PaymentFromUrl()`
+- `parseX402Payload()`
+- `serializeX402ScriptTag()`
+
 Design notes:
 - [x402 React Helpers Design](docs/X402_DESIGN.md)
 
@@ -242,6 +249,60 @@ Advanced escape hatch:
 - `encodeSmartAccountExecuteBatch`
 - `createExecuteUserOp`
 - `createExecuteBatchUserOp`
+- `createHazbaseX402Client`
+- `createX402WalletUrl`
+- `readX402PaymentFromUrl`
+- `parseX402Payload`
+- `serializeX402ScriptTag`
+
+## x402 pure helpers
+
+The x402 helpers are token-agnostic. Apps pass `network`, `asset`,
+`priceAtomic`, `payoutMethod`, and wallet URLs as configuration instead of using
+token-specific SDK methods.
+
+```ts
+import {
+  createHazbaseX402Client,
+  createX402WalletUrl,
+  readX402PaymentFromUrl,
+  serializeX402ScriptTag,
+} from '@hazbase/react';
+
+const x402Client = createHazbaseX402Client({
+  apiEndpoint: 'https://api.hazbase.com',
+});
+
+const requirement = await x402Client.createRequirement({
+  resourceId: 'member-page-v1',
+  resourceUrl: 'https://example.com/member-page',
+  description: 'Unlock member page',
+  network: 'sepolia',
+  asset: 'example-token',
+  priceAtomic: '100000000000000000',
+  payoutMethod: {
+    kind: 'external_eoa',
+    address: '0x1234567890AbcdEF1234567890aBcdef12345678',
+  },
+});
+
+const walletUrl = createX402WalletUrl({
+  walletUrl: 'https://wallet.example/pwa/',
+  x402: requirement.x402,
+  sourceUrl: 'https://example.com/member-page',
+  title: 'Member page',
+  completion: 'fragment',
+});
+
+const scriptTag = serializeX402ScriptTag(requirement.x402);
+const returned = readX402PaymentFromUrl(window.location.href);
+if (returned) {
+  await x402Client.settlePayment({
+    paymentRequestId: requirement.paymentRequestId,
+    xPayment: returned.xPayment,
+  });
+}
+```
 
 ## Notes
 - `PasskeyAccountProvider` assumes a first-party or allowlisted partner backend.

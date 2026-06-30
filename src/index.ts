@@ -14,3 +14,4 @@ export {
   encodeSmartAccountExecute,
   encodeSmartAccountExecuteBatch,
 } from './userop/accountExecute';
+export * from './x402';
