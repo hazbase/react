@@ -224,6 +224,10 @@ x402 hooks:
 - `useX402WalletHandoff()`
 - `useX402Settlement()`
 
+x402 components:
+- `X402Paywall`
+- `X402RequirementScript`
+
 Execute helpers:
 - `encodeSmartAccountExecute()`
 - `encodeSmartAccountExecuteBatch()`
@@ -263,6 +267,8 @@ Advanced escape hatch:
 - `readX402PaymentFromUrl`
 - `parseX402Payload`
 - `serializeX402ScriptTag`
+- `X402Paywall`
+- `X402RequirementScript`
 
 ## x402 pure helpers
 
@@ -366,6 +372,50 @@ export function App({ requirement }) {
 `useX402Requirement()` is available for demos and static-price pages, but
 production merchant pages should usually create requirements on their own
 backend and pass the returned payload into the paywall UI.
+
+## x402 render-prop component
+
+`X402Paywall` wraps the handoff and settlement hooks while leaving the UI to the
+application.
+
+```tsx
+import { HazbaseX402Provider, X402Paywall } from '@hazbase/react';
+
+function ArticleGate({ requirement }) {
+  return (
+    <X402Paywall
+      requirement={requirement}
+      sourceUrl={window.location.href}
+      title={document.title}
+      completionParam="xPayment"
+    >
+      {({ status, walletUrl, openWallet, error }) => {
+        if (status === 'settled') return <article>Unlocked</article>;
+        return (
+          <section>
+            <a href={walletUrl ?? '#'} onClick={openWallet}>
+              Pay to unlock
+            </a>
+            {error ? <p>{error.message}</p> : null}
+          </section>
+        );
+      }}
+    </X402Paywall>
+  );
+}
+
+export function App({ requirement }) {
+  return (
+    <HazbaseX402Provider walletUrl="https://wallet.example/pwa/">
+      <ArticleGate requirement={requirement} />
+    </HazbaseX402Provider>
+  );
+}
+```
+
+By default, `X402Paywall` also renders an
+`application/x-x402+json` script tag for extension detection. Set
+`renderRequirementScript={false}` if the page renders its own script tag.
 
 ## Notes
 - `PasskeyAccountProvider` assumes a first-party or allowlisted partner backend.

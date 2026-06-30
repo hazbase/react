@@ -322,6 +322,8 @@ Status: implemented.
 
 ### Phase 3: Paywall Convenience
 
+Status: implemented.
+
 - Add `X402Paywall`
 - Add `X402RequirementScript`
 - Add a minimal example app or docs page
