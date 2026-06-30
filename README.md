@@ -222,6 +222,9 @@ Execute helpers:
 - `createExecuteUserOp()`
 - `createExecuteBatchUserOp()`
 
+Design notes:
+- [x402 React Helpers Design](docs/X402_DESIGN.md)
+
 Advanced escape hatch:
 - `raw`: access to the low-level client for custom integrations
 
