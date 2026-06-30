@@ -239,6 +239,7 @@ x402 pure helpers:
 
 Design notes:
 - [x402 React Helpers Design](docs/X402_DESIGN.md)
+- [x402 Extension Bridge Design](docs/X402_EXTENSION_BRIDGE.md)
 
 Advanced escape hatch:
 - `raw`: access to the low-level client for custom integrations
