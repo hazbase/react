@@ -428,7 +428,8 @@ By default, `X402Paywall` also renders an
 
 Extension-enabled merchant pages can announce a payment request through a small
 postMessage bridge. Wallet extensions decide their own domain allowlist,
-side-panel behavior, and signing flow.
+side-panel behavior, and signing flow. Call `announce()` from a user action so
+browser extension surfaces such as Chrome Side Panel can open reliably.
 
 ```tsx
 import { useX402ExtensionBridge } from '@hazbase/react';

@@ -37,7 +37,7 @@ export interface UseX402ExtensionBridgeResult {
 
 export function useX402ExtensionBridge(options: UseX402ExtensionBridgeOptions): UseX402ExtensionBridgeResult {
   const enabled = options.enabled !== false;
-  const autoAnnounce = options.autoAnnounce !== false;
+  const autoAnnounce = options.autoAnnounce === true;
   const [status, setStatus] = useState<X402ExtensionBridgeStatus>('idle');
   const [requestId, setRequestId] = useState<string | null>(null);
   const [detected, setDetected] = useState<X402BridgeDetectedMessage[]>([]);

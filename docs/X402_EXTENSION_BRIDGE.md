@@ -225,7 +225,11 @@ useX402ExtensionBridge({
 ```
 
 The hook should be optional. A merchant can use only script tags and PWA handoff
-without opting into postMessage.
+without opting into postMessage. By default the hook does not announce
+automatically; call `announce()` from a user action. This keeps browser
+extension surfaces such as Chrome Side Panel aligned with user-activation
+requirements. Set `autoAnnounce: true` only for wallets that explicitly support
+passive detection without opening privileged UI.
 
 ## Open Questions
 
