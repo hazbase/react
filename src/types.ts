@@ -280,6 +280,149 @@ export interface SponsorUserOpResult {
   status?: string;
 }
 
+export type WalletTokenStandard = 'erc20' | 'flexible-token' | string;
+
+export interface WalletTokenSummary {
+  tokenId?: string;
+  chainId: number;
+  address: Hex | string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  standard: WalletTokenStandard;
+  transferable: boolean;
+  whitelistRequired: boolean;
+  voucherRedeemEnabled: boolean;
+  blockExplorerUrl?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WalletTokenInventory {
+  chainId: number;
+  tokens: WalletTokenSummary[];
+  status?: string;
+}
+
+export interface WalletTokenInfoResult {
+  chainId: number;
+  token: WalletTokenSummary;
+  status?: string;
+}
+
+export interface WalletTokenBalance {
+  raw: string;
+  formatted: string;
+  decimals: number;
+  symbol: string;
+}
+
+export interface WalletTokenBalanceResult {
+  chainId: number;
+  account: Hex | string;
+  token: WalletTokenSummary;
+  balance: WalletTokenBalance;
+  status?: string;
+}
+
+export type WalletActivityDirection = 'in' | 'out' | 'self' | string;
+
+export interface WalletActivityEntry {
+  id: string;
+  direction: WalletActivityDirection;
+  chainId: number;
+  account: Hex | string;
+  tokenAddress: Hex | string;
+  from: Hex | string;
+  to: Hex | string;
+  counterparty: Hex | string;
+  amount: WalletTokenBalance;
+  transactionHash: Hex | string;
+  blockNumber: number;
+  blockHash: Hex | string;
+  logIndex: number;
+  transactionIndex: number;
+  at?: string | null;
+  status?: string;
+}
+
+export interface WalletActivityResult {
+  chainId: number;
+  account: Hex | string;
+  token: WalletTokenSummary;
+  activities: WalletActivityEntry[];
+  nextCursor?: string | null;
+  range?: {
+    fromBlock: number;
+    toBlock: number;
+    latestBlock: number;
+  };
+  status?: string;
+}
+
+export interface PreparedTransferExecution {
+  target: Hex | string;
+  value: string;
+  data: Hex | string;
+  method: string;
+  selector: Hex | string;
+}
+
+export interface PreparedTransferPolicy {
+  authorization: 'owner-reauth' | 'session' | string;
+  sessionEligible: boolean;
+  sponsored: boolean;
+}
+
+export interface PreparedTransferResult {
+  chainId: number;
+  account: Hex | string;
+  recipient: Hex | string;
+  token: WalletTokenSummary;
+  amount: {
+    input: string;
+    raw: string;
+    formatted: string;
+    decimals: number;
+    symbol: string;
+  };
+  execution: PreparedTransferExecution;
+  policy: PreparedTransferPolicy;
+  display: {
+    title: string;
+    subtitle: string;
+    from: Hex | string;
+    to: Hex | string;
+    assetSymbol: string;
+    assetName: string;
+  };
+  metadata?: Record<string, unknown>;
+  status?: string;
+}
+
+export interface SubmitTransferResult {
+  chainId: number;
+  token: WalletTokenSummary;
+  transfer: {
+    account: Hex | string;
+    recipient: Hex | string;
+    amount: PreparedTransferResult['amount'];
+    execution: PreparedTransferExecution;
+  };
+  relayMode?: string;
+  bundlerRpcUrl?: string;
+  entryPointAddress?: string;
+  smartAccountAddress: Hex | string;
+  nonce: string;
+  initCode: Hex | string;
+  localUserOpHash: Hex | string;
+  submittedUserOpHash: Hex | string;
+  transactionHash?: Hex | string | null;
+  gasEstimate?: Record<string, unknown>;
+  receipt?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown>;
+  status?: string;
+}
+
 export interface DirectRelayExecutionResult {
   chainId?: number;
   accountVariant?: string;
@@ -336,6 +479,40 @@ export interface BundlerSendResult {
 
 export interface HazbasePasskeyClient {
   listSupportedChains(): Promise<SupportedChainsResult>;
+  listTokens(input?: { chainId?: number }): Promise<WalletTokenInventory>;
+  getTokenInfo(input: { chainId?: number; token: string }): Promise<WalletTokenInfoResult>;
+  getBalance(input: { chainId?: number; token: string; account: Hex | string }): Promise<WalletTokenBalanceResult>;
+  getActivity(input: {
+    chainId?: number;
+    token: string;
+    account: Hex | string;
+    limit?: number;
+    cursor?: string;
+    fromBlock?: number;
+    toBlock?: number;
+  }): Promise<WalletActivityResult>;
+  prepareTransfer(input: {
+    chainId?: number;
+    token: string;
+    account: Hex | string;
+    recipient: Hex | string;
+    amount: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<PreparedTransferResult>;
+  submitTransfer(input: {
+    emailSession: EmailOtpSession;
+    chainId?: number;
+    token: string;
+    account: Hex | string;
+    recipient: Hex | string;
+    amount: string;
+    deviceBindingId: string;
+    highTrustToken: string;
+    accountSalt?: string;
+    paymasterValiditySec?: string;
+    waitForReceipt?: boolean;
+    metadata?: Record<string, unknown>;
+  }): Promise<SubmitTransferResult>;
   sendOtp(input: { email: string; purpose?: string }): Promise<unknown>;
   verifyOtp(input: { email: string; code: string; purpose?: string }): Promise<EmailOtpSession>;
   registerPasskey(input: { emailSession: EmailOtpSession; deviceId?: string; deviceLabel?: string }): Promise<PasskeyRegistrationResult>;

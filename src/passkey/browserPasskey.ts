@@ -37,14 +37,13 @@ function toBase64url(input: ArrayBuffer | Uint8Array | null | undefined): string
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function fromBase64url(input: string): Uint8Array {
-
+function fromBase64url(input: string): ArrayBuffer {
   const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
   const padding = normalized.length % 4 === 0 ? '' : '='.repeat(4 - (normalized.length % 4));
   const binary = atob(normalized + padding);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 }
 
 function algorithmFromCode(code: number): PasskeyAlgorithm {

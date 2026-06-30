@@ -5,11 +5,16 @@ import {
   completePasskeyRegistration,
   endEmbeddedSession,
   executeEmbeddedSession,
+  getActivity,
+  getBalance,
+  getTokenInfo,
   grantEmbeddedSession,
   listSupportedChains,
   listEmbeddedSessions,
   listPasskeyDevices,
+  listTokens,
   lookupPasskeyAccount,
+  prepareTransfer,
   requestEmailOtp,
   requestPasskeyAccountDescriptor,
   requestPasskeyAssertionChallenge,
@@ -18,6 +23,7 @@ import {
   revokePasskeyDevice,
   sponsorUserOp,
   startEmbeddedSession,
+  submitTransfer,
   verifyEmailOtp,
 } from '@hazbase/auth';
 import { createPasskeyAssertionCredential, createPasskeyRegistrationCredential } from '../passkey/browserPasskey';
@@ -55,6 +61,58 @@ export function createHazbasePasskeyClient(
 
   return {
     listSupportedChains: async () => listSupportedChains(),
+    listTokens: async ({ chainId } = {}) => listTokens({ ...(chainId != null ? { chainId } : {}) }),
+    getTokenInfo: async ({ chainId, token }) =>
+      getTokenInfo({ token, ...(chainId != null ? { chainId } : {}) }),
+    getBalance: async ({ chainId, token, account }) =>
+      getBalance({ token, account, ...(chainId != null ? { chainId } : {}) }),
+    getActivity: async ({ chainId, token, account, limit, cursor, fromBlock, toBlock }) =>
+      getActivity({
+        token,
+        account,
+        ...(chainId != null ? { chainId } : {}),
+        ...(limit != null ? { limit } : {}),
+        ...(cursor ? { cursor } : {}),
+        ...(fromBlock != null ? { fromBlock } : {}),
+        ...(toBlock != null ? { toBlock } : {}),
+      }),
+    prepareTransfer: async ({ chainId, token, account, recipient, amount, metadata }) =>
+      prepareTransfer({
+        token,
+        account,
+        recipient,
+        amount,
+        ...(chainId != null ? { chainId } : {}),
+        ...(metadata ? { metadata } : {}),
+      }),
+    submitTransfer: async ({
+      emailSession,
+      chainId,
+      token,
+      account,
+      recipient,
+      amount,
+      deviceBindingId,
+      highTrustToken,
+      accountSalt,
+      paymasterValiditySec,
+      waitForReceipt,
+      metadata,
+    }) =>
+      submitTransfer({
+        emailSession: emailSession.accessToken,
+        token,
+        account,
+        recipient,
+        amount,
+        deviceBindingId,
+        highTrustToken,
+        ...(chainId != null ? { chainId } : {}),
+        ...(accountSalt ? { accountSalt } : {}),
+        ...(paymasterValiditySec != null ? { paymasterValiditySec } : {}),
+        ...(waitForReceipt != null ? { waitForReceipt } : {}),
+        ...(metadata ? { metadata } : {}),
+      }),
     sendOtp: async ({ email, purpose }) => requestEmailOtp({ email, purpose: purpose ?? defaultOtpPurpose }),
     verifyOtp: async ({ email, code, purpose }) => {
       const result = await verifyEmailOtp({ email, code, purpose: purpose ?? defaultOtpPurpose });
