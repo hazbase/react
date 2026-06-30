@@ -330,6 +330,8 @@ Status: implemented.
 
 ### Phase 4: Extension Bridge
 
+Status: implemented.
+
 - Define a generic page bridge contract
 - Keep domain allowlisting and side-panel behavior in wallet extensions
 - Document how merchant pages opt in

@@ -15,9 +15,15 @@ export { usePasskeyAccount } from './hooks/usePasskeyAccount';
 export { usePasskeyOnboarding } from './hooks/usePasskeyOnboarding';
 export { useAccountSecurity } from './hooks/useAccountSecurity';
 export { useX402Client } from './hooks/useX402Client';
+export { useX402ExtensionBridge } from './hooks/useX402ExtensionBridge';
 export { useX402Requirement } from './hooks/useX402Requirement';
 export { useX402Settlement } from './hooks/useX402Settlement';
 export { useX402WalletHandoff } from './hooks/useX402WalletHandoff';
+export type {
+  UseX402ExtensionBridgeOptions,
+  UseX402ExtensionBridgeResult,
+  X402ExtensionBridgeStatus,
+} from './hooks/useX402ExtensionBridge';
 export type {
   UseX402RequirementOptions,
   UseX402RequirementResult,

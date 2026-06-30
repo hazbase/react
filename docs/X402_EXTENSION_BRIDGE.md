@@ -187,6 +187,9 @@ every merchant to static host permissions.
 
 ## `@hazbase/react` Implementation Plan
 
+Status: implemented in `@hazbase/react` as generic helpers and an optional React
+hook. Wallet extensions still keep their own domain policy and side-panel UX.
+
 ### Bridge Types
 
 ```ts
@@ -235,7 +238,7 @@ without opting into postMessage.
 
 ## FUNAFC Wallet Implication
 
-FUNAFC Wallet can continue using a demo-domain allowlist for the MVP. When
-external merchants need support, the next step is to add the generic bridge
-types/helpers in `@hazbase/react`, then update the FUNAFC extension content
-script to consume those messages on allowed HTTPS pages.
+FUNAFC Wallet can continue using a demo-domain allowlist for the MVP while
+also consuming the generic bridge messages on allowed HTTPS pages. FUNAFC
+token policy should stay in the wallet app and merchant configuration, not in
+`@hazbase/react`.

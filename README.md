@@ -220,6 +220,7 @@ Account security helper:
 x402 hooks:
 - `HazbaseX402Provider`
 - `useX402Client()`
+- `useX402ExtensionBridge()`
 - `useX402Requirement()`
 - `useX402WalletHandoff()`
 - `useX402Settlement()`
@@ -240,6 +241,9 @@ x402 pure helpers:
 - `readX402PaymentFromUrl()`
 - `parseX402Payload()`
 - `serializeX402ScriptTag()`
+- `createX402BridgeRequest()`
+- `postX402BridgeRequest()`
+- `listenForX402BridgeMessages()`
 
 Design notes:
 - [x402 React Helpers Design](docs/X402_DESIGN.md)
@@ -267,6 +271,9 @@ Advanced escape hatch:
 - `readX402PaymentFromUrl`
 - `parseX402Payload`
 - `serializeX402ScriptTag`
+- `createX402BridgeRequest`
+- `postX402BridgeRequest`
+- `listenForX402BridgeMessages`
 - `X402Paywall`
 - `X402RequirementScript`
 
@@ -416,6 +423,41 @@ export function App({ requirement }) {
 By default, `X402Paywall` also renders an
 `application/x-x402+json` script tag for extension detection. Set
 `renderRequirementScript={false}` if the page renders its own script tag.
+
+## x402 extension bridge
+
+Extension-enabled merchant pages can announce a payment request through a small
+postMessage bridge. Wallet extensions decide their own domain allowlist,
+side-panel behavior, and signing flow.
+
+```tsx
+import { useX402ExtensionBridge } from '@hazbase/react';
+
+function ExtensionAwarePaywall({ requirement }) {
+  const bridge = useX402ExtensionBridge({
+    x402: requirement.x402,
+    paymentRequestId: requirement.paymentRequestId,
+    sourceUrl: window.location.href,
+    title: document.title,
+    completion: { mode: 'fragment', param: 'xPayment' },
+    allowedOrigins: [window.location.origin],
+    onPayment(message) {
+      // Apps can settle message.xPayment, or keep URL fragment completion as
+      // the primary flow and use this as an extension-only enhancement.
+    },
+  });
+
+  return (
+    <button type="button" onClick={bridge.announce}>
+      Pay with wallet extension
+    </button>
+  );
+}
+```
+
+The bridge is token-agnostic. It carries an x402 payload and generic wallet
+capabilities, but does not include private keys, passkey assertions, or
+token-specific policy.
 
 ## Notes
 - `PasskeyAccountProvider` assumes a first-party or allowlisted partner backend.
