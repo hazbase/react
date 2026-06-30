@@ -29,6 +29,7 @@ npm i @hazbase/react @hazbase/auth @hazbase/kit ethers react
 
 - `WalletProvider`: MetaMask / injected wallet apps
 - `PasskeyAccountProvider`: email OTP + passkey + account bootstrap + sponsored action apps
+- `HazbaseX402Provider`: token-agnostic x402 payment helpers for merchant pages
 
 Use `WalletProvider` when your app should behave like a normal wallet-connected dApp. Use `PasskeyAccountProvider` when your app should guide users through a hazBase-managed smart-wallet flow.
 
@@ -216,6 +217,13 @@ Onboarding-focused helper:
 Account security helper:
 - `useAccountSecurity()`
 
+x402 hooks:
+- `HazbaseX402Provider`
+- `useX402Client()`
+- `useX402Requirement()`
+- `useX402WalletHandoff()`
+- `useX402Settlement()`
+
 Execute helpers:
 - `encodeSmartAccountExecute()`
 - `encodeSmartAccountExecuteBatch()`
@@ -303,6 +311,60 @@ if (returned) {
   });
 }
 ```
+
+## x402 React hooks
+
+Use `HazbaseX402Provider` when a React page needs shared x402 client config or
+a default wallet URL.
+
+```tsx
+import {
+  HazbaseX402Provider,
+  useX402Settlement,
+  useX402WalletHandoff,
+} from '@hazbase/react';
+
+function Paywall({ requirement }) {
+  const handoff = useX402WalletHandoff({
+    x402: requirement.x402,
+    sourceUrl: window.location.href,
+    title: document.title,
+    completion: 'fragment',
+  });
+
+  const settlement = useX402Settlement({
+    paymentRequestId: requirement.paymentRequestId,
+    autoReadUrl: true,
+    onSettled() {
+      // App unlocks content or asks its backend to create an access grant.
+    },
+  });
+
+  if (settlement.status === 'settled') return <article>Unlocked</article>;
+
+  return (
+    <a href={handoff.walletUrl ?? '#'} onClick={handoff.openWallet}>
+      Pay to unlock
+    </a>
+  );
+}
+
+export function App({ requirement }) {
+  return (
+    <HazbaseX402Provider
+      apiEndpoint="https://api.hazbase.com"
+      walletUrl="https://wallet.example/pwa/"
+      completionParams={['xPayment', 'funafcXPayment']}
+    >
+      <Paywall requirement={requirement} />
+    </HazbaseX402Provider>
+  );
+}
+```
+
+`useX402Requirement()` is available for demos and static-price pages, but
+production merchant pages should usually create requirements on their own
+backend and pass the returned payload into the paywall UI.
 
 ## Notes
 - `PasskeyAccountProvider` assumes a first-party or allowlisted partner backend.

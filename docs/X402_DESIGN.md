@@ -311,6 +311,8 @@ Status: implemented.
 
 ### Phase 2: React Hooks
 
+Status: implemented.
+
 - Add `HazbaseX402Provider`
 - Add `useX402Client`
 - Add `useX402Requirement`
