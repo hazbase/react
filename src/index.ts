@@ -14,11 +14,21 @@ export { useNetwork } from './hooks/useNetwork';
 export { usePasskeyAccount } from './hooks/usePasskeyAccount';
 export { usePasskeyOnboarding } from './hooks/usePasskeyOnboarding';
 export { useAccountSecurity } from './hooks/useAccountSecurity';
+export { useHazbaseWalletClient, useTokenBalance, useWalletActivity } from './hooks/useHazbaseWalletClient';
 export { useX402Client } from './hooks/useX402Client';
 export { useX402ExtensionBridge } from './hooks/useX402ExtensionBridge';
 export { useX402Requirement } from './hooks/useX402Requirement';
 export { useX402Settlement } from './hooks/useX402Settlement';
 export { useX402WalletHandoff } from './hooks/useX402WalletHandoff';
+export { useWalletAddressLink } from './hooks/useWalletAddressLink';
+export type {
+  HazbaseWalletQueryStatus,
+  UseHazbaseWalletClientOptions,
+  UseTokenBalanceOptions,
+  UseTokenBalanceResult,
+  UseWalletActivityOptions,
+  UseWalletActivityResult,
+} from './hooks/useHazbaseWalletClient';
 export type {
   UseX402ExtensionBridgeOptions,
   UseX402ExtensionBridgeResult,
@@ -38,10 +48,16 @@ export type {
   UseX402WalletHandoffInput,
   UseX402WalletHandoffResult,
 } from './hooks/useX402WalletHandoff';
+export type {
+  UseWalletAddressLinkOptions,
+  UseWalletAddressLinkResult,
+  WalletAddressLinkStatus,
+} from './hooks/useWalletAddressLink';
 export {
   createExecuteBatchUserOp,
   createExecuteUserOp,
   encodeSmartAccountExecute,
   encodeSmartAccountExecuteBatch,
 } from './userop/accountExecute';
+export * from './wallet/address';
 export * from './x402';

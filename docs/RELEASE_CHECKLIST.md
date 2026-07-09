@@ -1,7 +1,5 @@
 # @hazbase/react Release Checklist
 
-`@hazbase/react` は FUNAFC 専用ではなく、hazBase の汎用 React/browser SDK として公開します。
-
 ## Versioning
 
 - Patch: bug fix or documentation-only behavior clarification.
@@ -28,7 +26,7 @@ Confirm that the package contains only:
 ## Public API Boundary
 
 - Keep x402 helpers token-agnostic.
-- Do not add FUNAFC-specific exports, constants, contract addresses, or chain policy.
+- Do not add app-specific exports, constants, contract addresses, token policy, or chain policy.
 - Keep wallet extension allowlisting and side-panel UX outside `@hazbase/react`.
 - Keep merchant pricing and payout decisions on merchant backend/API examples.
 

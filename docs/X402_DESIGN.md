@@ -1,8 +1,8 @@
 # x402 React Helpers Design
 
 This document defines the generic x402 surface planned for `@hazbase/react`.
-It must not depend on FUNAFC, Liquid, a specific chain, a specific token, or a
-specific merchant domain.
+It must not depend on a specific application, wallet, chain, token, or merchant
+domain.
 
 ## Goals
 
@@ -11,13 +11,13 @@ specific merchant domain.
 - Support both PWA wallet handoff and extension detection.
 - Let apps configure networks, assets, token addresses, wallet URLs, and payout
   methods without adding token-specific SDK functions.
-- Make the FUNAFC Wallet demo one application of these primitives, not a
-  dependency of the SDK.
+- Keep merchant and wallet implementations as applications of these primitives,
+  not dependencies of the SDK.
 
 ## Non-Goals
 
-- No hard-coded `FUNAFC`, token address, Sepolia-only logic, or merchant domain
-  allowlist in `@hazbase/react`.
+- No hard-coded token names, token addresses, chain-specific logic, or merchant
+  domain allowlists in `@hazbase/react`.
 - No frontend-only trust model for prices or payout addresses.
 - No wallet-specific UI styling. The SDK should expose state and helpers; apps
   own the final UI.
@@ -125,6 +125,8 @@ export function createHazbaseX402Client(config?: HazbaseX402ClientConfig) {
 
 Notes:
 
+- `apiEndpoint` defaults to `https://api.hazbase.com`. Pass it only for local,
+  staging, or self-hosted APIs.
 - `createRequirement()` calls `POST /api/payments/x402/requirements`.
 - `settlePayment()` calls `POST /api/payments/x402/settle`.
 - `createWalletUrl()` should base64url encode the x402 payload and append
@@ -293,7 +295,7 @@ extension concern.
 - Apps should settle `X-PAYMENT` on the backend before unlocking content.
 - Browser-side access grants are acceptable for demos and low-risk content only.
 - Do not log full `X-PAYMENT` values by default.
-- Do not add token-specific functions such as `getFunafcBalance()` to the SDK.
+- Do not add token-specific functions such as `getProjectTokenBalance()` to the SDK.
 - Generic APIs should accept `chainId`, `network`, `asset`, `assetAddress`,
   `priceAtomic`, `payoutMethod`, `resourceUrl`, and `metadata`.
 

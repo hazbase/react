@@ -56,10 +56,10 @@ test('readX402PaymentFromUrl reads hash and configured aliases', () => {
     source: 'hash',
   });
   assert.deepEqual(
-    readX402PaymentFromUrl('https://merchant.example/#funafcXPayment=proof', { params: ['funafcXPayment'] }),
+    readX402PaymentFromUrl('https://merchant.example/#merchantXPayment=proof', { params: ['merchantXPayment'] }),
     {
       xPayment: 'proof',
-      param: 'funafcXPayment',
+      param: 'merchantXPayment',
       source: 'hash',
     },
   );

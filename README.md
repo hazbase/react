@@ -186,6 +186,9 @@ export function App() {
 - `useSigner()`
 - `useAddress()`
 - `useNetwork()`
+- `useHazbaseWalletClient()`
+- `useTokenBalance()`
+- `useWalletActivity()`
 
 ### Passkey flow hooks
 The main passkey hook is `usePasskeyAccount()`.
@@ -225,6 +228,17 @@ x402 hooks:
 - `useX402WalletHandoff()`
 - `useX402Settlement()`
 
+Wallet address link helpers:
+- `requestWalletAddress()`
+- `createWalletAddressUrl()`
+- `readWalletAddressFromUrl()`
+- `useWalletAddressLink()`
+
+Wallet API hooks:
+- `useHazbaseWalletClient()`
+- `useTokenBalance()`
+- `useWalletActivity()`
+
 x402 components:
 - `X402Paywall`
 - `X402RequirementScript`
@@ -244,6 +258,11 @@ x402 pure helpers:
 - `createX402BridgeRequest()`
 - `postX402BridgeRequest()`
 - `listenForX402BridgeMessages()`
+- `requestWalletAddress()`
+- `createWalletAddressUrl()`
+- `readWalletAddressFromUrl()`
+- `normalizeWalletAddress()`
+- `shortWalletAddress()`
 
 Design notes:
 - [x402 React Helpers Design](docs/X402_DESIGN.md)
@@ -274,14 +293,113 @@ Advanced escape hatch:
 - `createX402BridgeRequest`
 - `postX402BridgeRequest`
 - `listenForX402BridgeMessages`
+- `requestWalletAddress`
+- `createWalletAddressUrl`
+- `readWalletAddressFromUrl`
+- `useWalletAddressLink`
 - `X402Paywall`
 - `X402RequirementScript`
+
+## Wallet address link helpers
+
+Apps that only need to identify the user's hazBase wallet address can use the
+wallet address link helpers instead of building their own postMessage bridge.
+This is useful for game inventories, reward pages, gated dashboards, or other
+services that display off-chain or on-chain holdings for the connected wallet.
+Non-React pages can import these helpers from `@hazbase/react/wallet` to avoid
+pulling the React-facing surface into their app bundle.
+
+```ts
+import {
+  requestWalletAddress,
+  readWalletAddressFromUrl,
+} from '@hazbase/react/wallet';
+
+const returned = readWalletAddressFromUrl(window.location.href);
+if (returned) {
+  console.log('Linked wallet:', returned.address);
+}
+
+const result = await requestWalletAddress({
+  walletUrl: 'https://wallet.example/pwa/',
+  returnUrl: window.location.href,
+  purpose: 'card_holdings',
+  fallbackToPwa: true,
+});
+
+if (result.ok) {
+  console.log('Linked wallet:', result.address);
+}
+```
+
+`requestWalletAddress()` first asks a compatible extension through the generic
+`hazbase:wallet:address-request` bridge. If no extension answers, it can redirect
+to the configured PWA with `walletAddressReturnUrl`. The URL reader accepts
+generic params such as `walletAddress` and `hazbaseWalletAddress`.
+
+React apps can use the stateful hook:
+
+```tsx
+import { useWalletAddressLink } from '@hazbase/react';
+
+function CardInventoryLink() {
+  const wallet = useWalletAddressLink({
+    walletUrl: 'https://wallet.example/pwa/',
+    returnUrl: window.location.href,
+    storageKey: 'my-app.wallet-address',
+    purpose: 'card_holdings',
+  });
+
+  return wallet.isConnected ? (
+    <button type="button" onClick={wallet.clear}>{wallet.address}</button>
+  ) : (
+    <button type="button" onClick={() => wallet.connect()}>Connect wallet</button>
+  );
+}
+```
+
+## Wallet API hooks
+
+Use these hooks when a React app needs hazBase-hosted wallet data without
+building its own fetch layer. They use `https://api.hazbase.com` by default;
+pass `apiEndpoint` only for local, staging, or self-hosted APIs.
+
+```tsx
+import { useTokenBalance, useWalletActivity } from '@hazbase/react';
+
+function WalletSummary({ account }: { account: string }) {
+  const balance = useTokenBalance({
+    chainId: 11155111,
+    token: 'example-token',
+    account,
+  });
+
+  const activity = useWalletActivity({
+    chainId: 11155111,
+    token: 'example-token',
+    account,
+    limit: 10,
+  });
+
+  return (
+    <section>
+      <p>{balance.balance?.formatted ?? '0'} {balance.balance?.symbol ?? ''}</p>
+      <ul>
+        {activity.activities.map((item) => (
+          <li key={item.id}>{item.direction}: {item.amount.formatted}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+```
 
 ## x402 pure helpers
 
 The x402 helpers are token-agnostic. Apps pass `network`, `asset`,
 `priceAtomic`, `payoutMethod`, and wallet URLs as configuration instead of using
-token-specific SDK methods.
+token-specific SDK methods. `createHazbaseX402Client()` also uses
+`https://api.hazbase.com` by default.
 
 ```ts
 import {
@@ -291,9 +409,7 @@ import {
   serializeX402ScriptTag,
 } from '@hazbase/react';
 
-const x402Client = createHazbaseX402Client({
-  apiEndpoint: 'https://api.hazbase.com',
-});
+const x402Client = createHazbaseX402Client();
 
 const requirement = await x402Client.createRequirement({
   resourceId: 'member-page-v1',
@@ -366,9 +482,8 @@ function Paywall({ requirement }) {
 export function App({ requirement }) {
   return (
     <HazbaseX402Provider
-      apiEndpoint="https://api.hazbase.com"
       walletUrl="https://wallet.example/pwa/"
-      completionParams={['xPayment', 'funafcXPayment']}
+      completionParams={['xPayment', 'merchantXPayment']}
     >
       <Paywall requirement={requirement} />
     </HazbaseX402Provider>

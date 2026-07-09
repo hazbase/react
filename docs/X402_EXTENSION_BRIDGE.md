@@ -7,7 +7,7 @@ pages. It is intentionally token-agnostic and wallet-extension agnostic.
 
 - Let merchant pages expose x402 payment requirements in a predictable way.
 - Let wallet extensions detect requirements and open their own approval UI.
-- Avoid hard-coding FUNAFC, Liquid, Sepolia, or a single merchant domain.
+- Avoid hard-coding a token, chain, wallet, or single merchant domain.
 - Keep side-panel opening, permission prompts, and signing inside the extension.
 - Keep settlement and access grants inside the merchant backend.
 
@@ -240,9 +240,9 @@ passive detection without opening privileged UI.
 - How should multiple wallet extensions on the same page coordinate?
 - Should an EIP-style provider discovery event be used later?
 
-## FUNAFC Wallet Implication
+## Wallet Implementation Boundary
 
-FUNAFC Wallet can continue using a demo-domain allowlist for the MVP while
-also consuming the generic bridge messages on allowed HTTPS pages. FUNAFC
-token policy should stay in the wallet app and merchant configuration, not in
+Wallet apps can use their own domain allowlists and policy controls while
+consuming the generic bridge messages on allowed HTTPS pages. Token and chain
+policy should stay in the wallet app and merchant configuration, not in
 `@hazbase/react`.
