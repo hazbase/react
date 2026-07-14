@@ -21,6 +21,7 @@ export { useX402Requirement } from './hooks/useX402Requirement';
 export { useX402Settlement } from './hooks/useX402Settlement';
 export { useX402WalletHandoff } from './hooks/useX402WalletHandoff';
 export { useWalletAddressLink } from './hooks/useWalletAddressLink';
+export { useWalletLink } from './hooks/useWalletLink';
 export type {
   HazbaseWalletQueryStatus,
   UseHazbaseWalletClientOptions,
@@ -53,6 +54,11 @@ export type {
   UseWalletAddressLinkResult,
   WalletAddressLinkStatus,
 } from './hooks/useWalletAddressLink';
+export type {
+  UseWalletLinkOptions,
+  UseWalletLinkResult,
+  WalletLinkStatus,
+} from './hooks/useWalletLink';
 export {
   createExecuteBatchUserOp,
   createExecuteUserOp,

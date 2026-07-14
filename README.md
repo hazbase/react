@@ -228,7 +228,10 @@ x402 hooks:
 - `useX402WalletHandoff()`
 - `useX402Settlement()`
 
-Wallet address link helpers:
+Authenticated wallet link:
+- `useWalletLink()`
+
+Legacy raw-address helpers (display and migration only):
 - `requestWalletAddress()`
 - `createWalletAddressUrl()`
 - `readWalletAddressFromUrl()`
@@ -297,15 +300,44 @@ Advanced escape hatch:
 - `createWalletAddressUrl`
 - `readWalletAddressFromUrl`
 - `useWalletAddressLink`
+- `useWalletLink`
 - `X402Paywall`
 - `X402RequirementScript`
 
-## Wallet address link helpers
+## Authenticated wallet link
 
-Apps that only need to identify the user's hazBase wallet address can use the
-wallet address link helpers instead of building their own postMessage bridge.
-This is useful for game inventories, reward pages, gated dashboards, or other
-services that display off-chain or on-chain holdings for the connected wallet.
+Use `useWalletLink()` when an address affects identity, authorization,
+eligibility, rewards, or private data. It requests a short-lived challenge,
+verifies an origin-bound wallet proof, and stores only a signed link-session
+token. A saved connection is verified with the hazBase API on every restore.
+
+```tsx
+import { useWalletLink } from '@hazbase/react';
+
+function CardInventoryLink() {
+  const wallet = useWalletLink({
+    walletUrl: 'https://wallet.example/pwa/',
+    storageKey: 'my-app.wallet-link-session',
+    purpose: 'card_holdings',
+    fallbackToPwa: true,
+  });
+
+  return wallet.isConnected ? (
+    <button type="button" onClick={wallet.clear}>{wallet.walletAddress}</button>
+  ) : (
+    <button type="button" onClick={() => wallet.connect()}>Connect wallet</button>
+  );
+}
+```
+
+The hook tries a compatible extension first. If it is unavailable, the same
+one-time challenge is handed to the configured PWA and verified after return.
+The default API endpoint is `https://api.hazbase.com`.
+
+## Legacy raw-address helpers
+
+Apps that only need a non-authenticated address for display or migration can
+use the raw wallet-address helpers instead of building a postMessage bridge.
 Non-React pages can import these helpers from `@hazbase/react/wallet` to avoid
 pulling the React-facing surface into their app bundle.
 
@@ -337,7 +369,7 @@ if (result.ok) {
 to the configured PWA with `walletAddressReturnUrl`. The URL reader accepts
 generic params such as `walletAddress` and `hazbaseWalletAddress`.
 
-React apps can use the stateful hook:
+React apps can use the legacy stateful hook:
 
 ```tsx
 import { useWalletAddressLink } from '@hazbase/react';
@@ -357,6 +389,11 @@ function CardInventoryLink() {
   );
 }
 ```
+
+Raw addresses and URL parameters are user-editable. Never use
+`requestWalletAddress()`, `readWalletAddressFromUrl()`, or
+`useWalletAddressLink()` as ownership, authentication, authorization,
+eligibility, or reward evidence.
 
 ## Wallet API hooks
 

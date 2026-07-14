@@ -160,12 +160,14 @@ export function isWalletAddressResponseMessage(value: unknown): value is WalletA
     && optionalString(value.source);
 }
 
+/** @deprecated Raw URL handoff is not proof of identity. Use useWalletLink from the main package. */
 export function createWalletAddressUrl(input: CreateWalletAddressUrlInput): string {
   const url = new URL(input.walletUrl);
   url.searchParams.set(input.returnUrlParam ?? 'walletAddressReturnUrl', input.returnUrl);
   return url.toString();
 }
 
+/** @deprecated URL addresses are user-editable. Use useWalletLink from the main package. */
 export function readWalletAddressFromUrl(
   input: string | URL = defaultLocationHref(),
   options: ReadWalletAddressFromUrlOptions = {},
@@ -180,6 +182,7 @@ export function readWalletAddressFromUrl(
   return fromSearch ? { ...fromSearch, source: 'search' } : null;
 }
 
+/** @deprecated Raw addresses are not proof of identity. Use useWalletLink from the main package. */
 export function requestWalletAddress(options: RequestWalletAddressOptions = {}): Promise<RequestWalletAddressResult> {
   const targetWindow = options.targetWindow ?? safeCurrentWindow();
   if (!targetWindow) {

@@ -51,7 +51,9 @@
   },
   "scripts": {
     "build": "tsup src/index.ts src/wallet/address.ts --format esm,cjs --dts --clean",
+    "test": "npm run test:wallet-address && npm run test:wallet-link && npm run test:x402",
     "test:x402": "npm run build && tsup src/x402/index.ts --format esm --out-dir .x402-test-dist --clean && X402_TEST_DIST=./.x402-test-dist/index.js node --test test/x402.test.mjs",
+    "test:wallet-link": "npm run build && node --test test/wallet-link.test.mjs",
     "test:wallet-address": "npm run build && tsup src/wallet/address.ts --format esm --out-dir .wallet-address-test-dist --clean && WALLET_ADDRESS_TEST_DIST=./.wallet-address-test-dist/address.js node --test test/wallet-address.test.mjs",
     "prepublishOnly": "npm run build"
   },
@@ -64,8 +66,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@hazbase/auth": "^0.6.0",
-    "@hazbase/kit": "^0.6.0"
+    "@hazbase/auth": "^0.6.1",
+    "@hazbase/kit": "^0.7.0"
   },
   "overrides": {
     "ws": "^8.21.0",

@@ -29,6 +29,7 @@ export interface UseWalletAddressLinkResult {
   setAddress: (address: string | null) => boolean;
 }
 
+/** @deprecated Raw wallet addresses are not identity proof. Use useWalletLink for authenticated linking. */
 export function useWalletAddressLink(options: UseWalletAddressLinkOptions = {}): UseWalletAddressLinkResult {
   const enabled = options.enabled !== false;
   const initialAddress = useMemo(() => normalizeWalletAddress(options.initialAddress), [options.initialAddress]);

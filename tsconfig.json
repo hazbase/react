@@ -13,7 +13,8 @@
     "types": [],
     "baseUrl": ".",
     "paths": {
-      "@hazbase/auth": ["../auth/src/index.ts"]
+      "@hazbase/auth": ["../auth/src/index.ts"],
+      "@hazbase/kit/*": ["../kit/src/*"]
     }
   },
   "include": ["src"]

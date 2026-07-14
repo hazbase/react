@@ -9,6 +9,7 @@
 # testing
 /coverage
 /.x402-test-dist
+/.wallet-address-test-dist
 
 # production
 /build
